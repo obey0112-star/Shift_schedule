@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>근무표</title>
+<style>
+  :root { --line:#d9e0e7; --head:#f1f5f9; --blue:#2563eb; --text:#243041; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:Arial,"Malgun Gothic",sans-serif; color:var(--text); background:#f7f9fc; }
+  .app { max-width:1500px; margin:0 auto; padding:22px; }
+  header { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+  h1 { font-size:25px; margin:0 0 5px; }
+  .subtitle { font-size:13px; color:#687789; }
+  .controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  button, input, select { font:inherit; }
+  button { border:1px solid #cbd5e1; background:white; border-radius:7px; padding:9px 12px; cursor:pointer; }
+  button.primary { background:var(--blue); color:white; border-color:var(--blue); }
+  button:hover { filter:brightness(.97); }
+  input[type="month"], input[type="text"], input[type="date"], select { border:1px solid #cbd5e1; border-radius:7px; padding:9px; background:white; }
+  .notice { background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; border-radius:8px; padding:10px 12px; font-size:13px; margin-bottom:14px; }
+  .table-wrap { max-height:calc(100vh - 260px); min-height:360px; overflow:auto; border:1px solid var(--line); border-radius:10px; background:white; box-shadow:0 3px 12px #0f172a0a; }
+  table { border-collapse:separate; border-spacing:0; width:100%; min-width:900px; table-layout:fixed; }
+  th, td { border-right:1px solid var(--line); border-bottom:1px solid var(--line); }
+  th:last-child, td:last-child { border-right:0; }
+  tr:last-child td { border-bottom:0; }
+  thead th { background:var(--head); padding:11px 8px; font-size:13px; text-align:center; position:sticky; top:0; z-index:2; }
+  th.date-col { width:150px; }
+  th.day-col { width:42px; }
+  th.person-col { width:190px; }
+  tbody td { height:76px; padding:6px; vertical-align:top; }
+  tbody tr.month-row td { height:auto; padding:8px 12px; background:#e8eefc; color:#1e3a8a; font-weight:700; font-size:14px; border-right:0; }
+  tbody tr.month-row td span { position:sticky; left:12px; display:inline-block; }
+  td.date-cell { background:#f8fafc; padding:9px; font-size:13px; position:sticky; left:0; z-index:1; }
+  .date-num { font-weight:700; font-size:15px; }
+  .weekday { color:#64748b; margin-left:4px; }
+  .weekend-sun .date-num, .weekend-sun .weekday { color:#dc2626; }
+  .weekend-sat .date-num, .weekend-sat .weekday { color:#2563eb; }
+  .today { box-shadow:inset 0 0 0 2px #60a5fa; }
+  td.person-cell { padding:5px; }
+  .entry { width:100%; height:100%; min-height:62px; resize:vertical; border:1px solid transparent; border-radius:5px; padding:7px; font-size:13px; line-height:1.4; background:transparent; color:var(--text); }
+  .entry:focus { outline:2px solid #93c5fd; border-color:#93c5fd; background:#fff; }
+  .entry::placeholder { color:#b0bac7; }
+  .bottom { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-top:12px; font-size:12px; color:#64748b; }
+  .legend { display:flex; gap:12px; flex-wrap:wrap; }
+  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; }
+  .empty { text-align:center; padding:30px; color:#64748b; }
+  .locked-entry { background:#f1f5f9 !important; color:#64748b; cursor:not-allowed; }
+  .admin-badge { font-size:12px; padding:7px 10px; border-radius:7px; background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; }
+  .admin-badge.viewer { background:#fff7ed; color:#9a3412; border-color:#fed7aa; }
+  .history-panel { margin-top:16px; border:1px solid var(--line); border-radius:10px; background:white; padding:14px; }
+  .history-panel h2 { margin:0 0 10px; font-size:16px; }
+  .history-table-wrap { overflow:auto; border:1px solid #cbd5e1; }
+  .history-table { width:100%; min-width:760px; border-collapse:collapse; table-layout:auto; }
+  .history-table th,.history-table td { border:1px solid #cbd5e1; padding:8px 10px; font-size:12px; text-align:left; vertical-align:top; }
+  .history-table th { background:#eaf1f8; font-weight:700; white-space:nowrap; }
+  .history-table tbody tr:nth-child(even) { background:#f8fafc; }
+  .history-table td.memo-cell { white-space:pre-wrap; overflow-wrap:anywhere; }
+  .note-cell { position:relative; }
+  .note-cell::after { content:''; position:absolute; right:0; top:0; width:0; height:0; border-top:9px solid #f59e0b; border-left:9px solid transparent; pointer-events:none; }
+  td.modified-cell { white-space:pre-line; font-size:11px; line-height:1.45; position:sticky; left:auto; right:0; cursor:default; }
+  td.modified-cell.has-memo { cursor:help; }
+  td.modified-cell.has-memo::after { content:''; position:absolute; right:0; top:0; width:0; height:0; border-top:9px solid #dc2626; border-left:9px solid transparent; pointer-events:none; }
+  td.modified-cell:focus { outline:2px solid #93c5fd; outline-offset:-2px; }
+  #memoPop { position:fixed; display:none; z-index:50; min-width:230px; max-width:360px; background:#ffffe1; border:1px solid #000; padding:6px 8px; font:12px/1.45 "Malgun Gothic",Arial,sans-serif; color:#000; box-shadow:3px 3px 6px #0004; pointer-events:none; }
+  #memoPop .memo-title { font-weight:700; margin-bottom:5px; padding-bottom:3px; border-bottom:1px solid #c9c9a0; }
+  #memoPop .memo-item { margin:0 0 5px; }
+  #memoPop .memo-item:last-child { margin-bottom:0; }
+  #memoPop .memo-meta { font-weight:700; }
+  #memoPop .memo-body { padding-left:8px; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .small-note { color:#64748b; font-size:12px; margin-top:8px; }
+  .account-list { width:100%; border-collapse:collapse; min-width:0; }
+  .account-list th,.account-list td { padding:8px; border:1px solid var(--line); text-align:left; font-size:13px; }
+  .account-list th { background:var(--head); }
+  .modal-backdrop { position:fixed; inset:0; background:#0f172a66; display:none; align-items:center; justify-content:center; padding:16px; z-index:10; }
+  .modal { width:min(460px,100%); background:white; border-radius:12px; padding:20px; box-shadow:0 20px 50px #0003; }
+  .modal h2 { margin:0 0 14px; font-size:19px; }
+  .form-row { display:grid; gap:6px; margin:12px 0; font-size:13px; }
+  .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
+  @media(max-width:700px) { .app{padding:12px} h1{font-size:21px} th.person-col{width:150px} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>📅 근무표</h1>
+      <div class="subtitle">엑셀처럼 날짜별 일정을 한눈에 확인하세요. (2026년 ~ 2030년)</div>
+    </div>
+    <div class="controls">
+      <button id="todayBtn" class="primary">오늘</button>
+      <input type="month" id="monthPicker" aria-label="월 선택">
+      <span id="loginStatus" class="admin-badge viewer">로그인 필요</span>
+      <button id="loginBtn">로그인</button>
+      <button id="logoutBtn" hidden>로그아웃</button>
+      <button id="manageAccountsBtn" hidden>계정 관리</button>
+      <button id="managePeople">항목 관리</button>
+    </div>
+  </header>
+
+  <div class="notice">
+    <strong>간단 사용법:</strong> 일정 칸을 수정하면 마지막 수정 날짜와 계정명이 표시됩니다. 수정된 칸 오른쪽 위의 주황색 표시를 통해 엑셀 메모처럼 마우스를 올려 수정 계정과 날짜를 확인할 수 있습니다. <strong>마지막 수정일</strong> 칸의 빨간 표시에 마우스를 올리면 해당 날짜의 최근 수정 10건이 엑셀 메모처럼 표시됩니다.
+    로그인한 사용자만 일정을 수정할 수 있으며, 오늘 기준 7일보다 오래된 날짜는 관리자만 수정할 수 있습니다. 계정 등록·삭제는 관리자 전용입니다. 단, 계정 정보는 이 브라우저에 저장되는 데모 방식이므로 실제 온라인 공유 환경에서는 서버 인증이 필요합니다. 현재 버전은 실시간 온라인 동기화가 되지 않습니다.
+  </div>
+
+  <div class="table-wrap">
+    <table id="schedule">
+      <thead><tr id="headerRow"></tr></thead>
+      <tbody id="bodyRows"></tbody>
+    </table>
+  </div>
+  <div class="bottom">
+    <div class="legend">
+      <span><i class="dot" style="background:#dc2626"></i>일요일</span>
+      <span><i class="dot" style="background:#2563eb"></i>토요일</span>
+      <span><i class="dot" style="background:#60a5fa"></i>오늘</span>
+    </div>
+    <span id="saveStatus">자동 저장 대기 중</span>
+  </div>
+</div>
+
+<div id="memoPop" role="tooltip"></div>
+
+<div class="modal-backdrop" id="peopleModal">
+  <div class="modal">
+    <h2>친구 관리</h2>
+    <p style="font-size:13px;color:#64748b">표에 표시할 친구 이름을 쉼표로 구분해 입력하세요. 예: 민수, 지영, 나</p>
+    <label class="form-row">친구 이름 목록
+      <input type="text" id="peopleInput" placeholder="민수, 지영, 나">
+    </label>
+    <div class="modal-actions">
+      <button id="cancelPeople">취소</button>
+      <button class="primary" id="savePeople">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="accountsModal">
+  <div class="modal" style="width:min(650px,100%)">
+    <h2>계정 관리 <span style="font-size:12px;color:#64748b;font-weight:normal">관리자 전용</span></h2>
+    <form id="accountForm">
+      <label class="form-row">사용자 아이디
+        <input type="text" id="newUsername" autocomplete="off" required maxlength="40" placeholder="예: kim 또는 김철수">
+      </label>
+      <label class="form-row">비밀번호
+        <input type="password" id="newPassword" autocomplete="new-password" required minlength="4" maxlength="100" placeholder="4자 이상">
+      </label>
+      <label class="form-row">권한
+        <select id="newRole"><option value="user">일반 사용자</option><option value="admin">관리자</option></select>
+      </label>
+      <div class="modal-actions" style="justify-content:space-between">
+        <button type="submit" class="primary">계정 등록</button>
+        <button type="button" id="closeAccounts">닫기</button>
+      </div>
+    </form>
+    <hr style="border:0;border-top:1px solid #e2e8f0;margin:16px 0">
+    <div id="accountsTableWrap"></div>
+    <div class="small-note">계정 삭제는 해당 행의 삭제 버튼을 누르세요. 현재 로그인한 관리자 계정은 삭제할 수 없습니다.</div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const STORAGE_KEY = 'friendScheduleV1';
+  // 이 버전을 처음 여는 브라우저에서 한 번만: 저장된 일정·수정 기록·항목·계정을 모두 지우고 새것처럼 시작합니다.
+  if (!localStorage.getItem('friendScheduleResetV4')) {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem('friendScheduleAccounts');
+    sessionStorage.removeItem('friendScheduleUser');
+    localStorage.setItem('friendScheduleResetV4', '1');
+  }
+  const DEFAULT_PEOPLE = ['휴가자1', '휴가자2', '휴가자3', '휴가자4', 'Remark1', 'Remark2'];
+  let data = loadData();
+  let currentMonth = new Date();
+  currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+  let currentUser = sessionStorage.getItem('friendScheduleUser') || '';
+  // First-run administrator account. Change the password after logging in.
+  const DEFAULT_ADMIN = { username: 'admin', password: 'admin1234', role: 'admin' };
+  let accounts = loadAccounts();
+  let isAdmin = false;
+  if (currentUser && !accounts.some(a => a.username === currentUser)) {
+    currentUser = '';
+    sessionStorage.removeItem('friendScheduleUser');
+  }
+
+  function loadAccounts() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('friendScheduleAccounts'));
+      if (Array.isArray(saved) && saved.some(a => a.username === 'admin' && a.role === 'admin')) return saved;
+    } catch (e) {}
+    const initial = [DEFAULT_ADMIN];
+    localStorage.setItem('friendScheduleAccounts', JSON.stringify(initial));
+    return initial;
+  }
+  function saveAccounts() {
+    localStorage.setItem('friendScheduleAccounts', JSON.stringify(accounts));
+  }
+  function getCurrentAccount() {
+    return accounts.find(a => a.username === currentUser) || null;
+  }
+  function startOfDay(d) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+  function isOlderThanSevenDays(dateString) {
+    const parts = dateString.split('-').map(Number);
+    const rowDate = new Date(parts[0], parts[1]-1, parts[2]);
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 7);
+    return startOfDay(rowDate) < startOfDay(cutoff);
+  }
+  function updateAdminUI() {
+    const account = getCurrentAccount();
+    isAdmin = !!account && account.role === 'admin';
+    const loginStatus = document.getElementById('loginStatus');
+    loginStatus.textContent = account
+      ? `${account.username} · ${isAdmin ? '관리자' : '일반 사용자'}`
+      : '로그인 필요';
+    loginStatus.classList.toggle('viewer', !isAdmin);
+    document.getElementById('loginBtn').hidden = !!account;
+    document.getElementById('logoutBtn').hidden = !account;
+    document.getElementById('manageAccountsBtn').hidden = !isAdmin;
+    document.getElementById('managePeople').hidden = !isAdmin;
+  }
+
+  function recordHistory(date, person, value, before) {
+    if (!Array.isArray(data.history)) data.history = [];
+    const now = new Date();
+    data.history.push({
+      date,
+      category: person,
+      user: currentUser || (isAdmin ? '관리자' : '사용자'),
+      time: now.toLocaleString('ko-KR', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}),
+      timestamp: now.toISOString(),
+      before: before ? String(before).replace(/\s+/g, ' ').slice(0, 40) : '',
+      summary: value ? String(value).replace(/\\s+/g, ' ').slice(0, 70) : '일정 삭제'
+    });
+    // 날짜별로 최근 10건만 보관(마지막 수정일 메모용), 전체 상한은 안전장치
+    const sameDate = data.history.filter(h => h.date === date);
+    if (sameDate.length > 10) {
+      const drop = new Set(sameDate.slice(0, sameDate.length - 10));
+      data.history = data.history.filter(h => !drop.has(h));
+    }
+    data.history = data.history.slice(-2000);
+  }
+
+
+  const memoPop = document.getElementById('memoPop');
+  function buildMemoHtml(date) {
+    const items = (Array.isArray(data.history) ? data.history : [])
+      .filter(h => h.date === date).slice(-10).reverse();
+    const title = `<div class="memo-title">${escapeHtml(date)} 최근 수정 내역 (최신순 · 최대 10건)</div>`;
+    if (!items.length) {
+      const stamp = data.modified && data.modified[date];
+      if (!stamp) return '';
+      const who = data.modifiedBy && data.modifiedBy[date];
+      return title + `<div class="memo-item"><div class="memo-meta">${escapeHtml(who || '이전 기록')} · ${escapeHtml(formatModified(stamp))}</div><div class="memo-body">상세 내역이 없는 이전 기록입니다.</div></div>`;
+    }
+    return title + items.map(h => {
+      const change = h.before ? `${h.before} → ${h.summary || ''}` : (h.summary || '일정 수정');
+      return `<div class="memo-item"><div class="memo-meta">${escapeHtml(h.user || '알 수 없음')} · ${escapeHtml(h.time || '')}</div><div class="memo-body">${escapeHtml(h.category || '')}: ${escapeHtml(change)}</div></div>`;
+    }).join('');
+  }
+  function showMemo(anchor, date) {
+    const html = buildMemoHtml(date);
+    if (!html) return;
+    memoPop.innerHTML = html;
+    memoPop.style.display = 'block';
+    const r = anchor.getBoundingClientRect();
+    const w = memoPop.offsetWidth, h = memoPop.offsetHeight;
+    let left = r.left - w - 6;
+    if (left < 8) left = Math.min(r.right + 6, window.innerWidth - w - 8);
+    const top = Math.min(Math.max(8, r.top), window.innerHeight - h - 8);
+    memoPop.style.left = Math.max(8, left) + 'px';
+    memoPop.style.top = Math.max(8, top) + 'px';
+  }
+  function hideMemo() { memoPop.style.display = 'none'; }
+  window.addEventListener('scroll', hideMemo, true);
+
+  function loadData() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      if (saved && Array.isArray(saved.people) && saved.events) {
+        if (!saved.modified) saved.modified = {};
+        if (!saved.modifiedBy) saved.modifiedBy = {};
+        if (!saved.cellModified) saved.cellModified = {};
+        if (!saved.cellModifiedBy) saved.cellModifiedBy = {};
+        if (!Array.isArray(saved.history)) saved.history = [];
+        const oldDefaults = ['휴가자', '경조사', '기타', 'Remark'];
+        if (saved.people.length === oldDefaults.length && oldDefaults.every((p, i) => saved.people[i] === p)) {
+          saved.people = [...DEFAULT_PEOPLE];
+        }
+        return saved;
+      }
+    } catch (e) {}
+    return { people: [...DEFAULT_PEOPLE], events: {}, modified: {}, modifiedBy: {}, cellModified: {}, cellModifiedBy: {}, history: [] };
+  }
+  function persist() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    document.getElementById('saveStatus').textContent =
+      '저장됨 · ' + new Date().toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
+  }
+  function keyFor(date, person) {
+    return `${date}|${person}`;
+  }
+  function fmtDate(y, m, d) {
+    return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  }
+  const RANGE_START = 2026, RANGE_END = 2030;
+  const WEEKDAYS = ['일','월','화','수','목','금','토'];
+  let monthRows = [];
+  let rendered = false;
+
+  function render() {
+    const wrap = document.querySelector('.table-wrap');
+    const prevTop = wrap.scrollTop;
+    const header = document.getElementById('headerRow');
+    header.innerHTML = '<th class="date-col">날짜</th>' +
+      data.people.map(p => `<th class="person-col">${escapeHtml(p)}</th>`).join('') +
+      '<th class="date-col">마지막 수정일</th>';
+    const cols = data.people.length + 2;
+    const now = new Date();
+    const ty = now.getFullYear(), tm = now.getMonth(), tdd = now.getDate();
+    const cut = new Date(now); cut.setDate(cut.getDate() - 7);
+    const cutoffStr = fmtDate(cut.getFullYear(), cut.getMonth(), cut.getDate());
+    const histDates = new Set((data.history || []).map(h => h.date));
+    const parts = [];
+    for (let y = RANGE_START; y <= RANGE_END; y++) {
+      for (let m = 0; m < 12; m++) {
+        parts.push(`<tr class="month-row" data-ym="${y}-${m}"><td colspan="${cols}"><span>${y}년 ${m+1}월</span></td></tr>`);
+        const days = new Date(y, m+1, 0).getDate();
+        for (let d = 1; d <= days; d++) {
+          const date = fmtDate(y, m, d);
+          const dow = new Date(y, m, d).getDay();
+          const isToday = (y === ty && m === tm && d === tdd);
+          const locked = !currentUser || (date < cutoffStr && !isAdmin);
+          const lockTitle = !currentUser ? '수정하려면 먼저 로그인하세요.' : '7일이 지난 일정은 관리자만 수정할 수 있습니다.';
+          const cells = data.people.map((person, pi) => {
+            const k = keyFor(date, person);
+            const val = data.events[k] || '';
+            const stamp = data.cellModified && data.cellModified[k];
+            const who = data.cellModifiedBy && data.cellModifiedBy[k];
+            let title = stamp ? `메모 · 수정 계정: ${who || '알 수 없음'} · 수정 날짜: ${formatModified(stamp)}` : '';
+            if (locked) title = title ? `${title}\n${lockTitle}` : lockTitle;
+            const tdCls = 'person-cell' + (stamp && val ? ' note-cell' : '');
+            return `<td class="${tdCls}"><textarea class="entry${locked ? ' locked-entry' : ''}" data-date="${date}" data-pi="${pi}"${locked ? ' disabled' : ''}${title ? ` title="${escapeHtml(title)}"` : ''} aria-label="${date} ${escapeHtml(person)} 일정">\n${escapeHtml(val)}</textarea></td>`;
+          }).join('');
+          const mDate = data.modified && data.modified[date];
+          const mUser = data.modifiedBy && data.modifiedBy[date];
+          const modCell = `<td class="date-cell modified-cell${(mDate || histDates.has(date)) ? ' has-memo' : ''}" tabindex="0" data-date="${date}">` +
+            (mDate ? `${escapeHtml(formatModified(mDate))}<br><strong>${escapeHtml(mUser || '이전 기록')}</strong>` : '—') + '</td>';
+          const dateCls = 'date-cell ' + (dow === 0 ? 'weekend-sun' : dow === 6 ? 'weekend-sat' : '') + (isToday ? ' today' : '');
+          parts.push(`<tr data-date="${date}"${isToday ? ' id="todayRow"' : ''}><td class="${dateCls}"><span class="date-num">${d}일</span><span class="weekday">${WEEKDAYS[dow]}</span></td>${cells}${modCell}</tr>`);
+        }
+      }
+    }
+    document.getElementById('bodyRows').innerHTML = parts.join('');
+    monthRows = Array.from(document.querySelectorAll('#bodyRows tr.month-row'));
+    const picker = document.getElementById('monthPicker');
+    picker.min = `${RANGE_START}-01`; picker.max = `${RANGE_END}-12`;
+    if (!rendered) { rendered = true; scrollToToday(); }
+    else { wrap.scrollTop = prevTop; }
+    updateCurrentMonth();
+  }
+  function scrollToEl(el, smooth) {
+    const wrap = document.querySelector('.table-wrap');
+    const head = wrap.querySelector('thead');
+    const top = el.getBoundingClientRect().top - wrap.getBoundingClientRect().top + wrap.scrollTop - head.offsetHeight;
+    if (smooth && wrap.scrollTo) wrap.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    else wrap.scrollTop = Math.max(0, top);
+  }
+  function scrollToToday(smooth) {
+    const row = document.getElementById('todayRow');
+    if (row) { scrollToEl(row, !!smooth); return; }
+    const now = new Date();
+    // 오늘이 표시 범위 밖이면 가장 가까운 끝으로 이동
+    if (monthRows.length) scrollToEl(now.getFullYear() < RANGE_START ? monthRows[0] : monthRows[monthRows.length - 1], !!smooth);
+  }
+  function updateCurrentMonth() {
+    if (!monthRows.length) return;
+    const wrap = document.querySelector('.table-wrap');
+    const limit = wrap.getBoundingClientRect().top + wrap.querySelector('thead').offsetHeight + 4;
+    let cur = monthRows[0];
+    for (const r of monthRows) {
+      if (r.getBoundingClientRect().top <= limit) cur = r; else break;
+    }
+    const [y, m] = cur.dataset.ym.split('-').map(Number);
+    currentMonth = new Date(y, m, 1);
+    document.getElementById('monthPicker').value = `${y}-${String(m+1).padStart(2,'0')}`;
+  }
+  function jumpToMonth(y, m, smooth) {
+    const row = monthRows.find(r => r.dataset.ym === `${y}-${m}`);
+    if (!row) return;
+    currentMonth = new Date(y, m, 1);
+    document.getElementById('monthPicker').value = `${y}-${String(m+1).padStart(2,'0')}`;
+    scrollToEl(row, smooth);
+  }
+  function formatModified(value) {
+    if (!value) return '—';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString('ko-KR', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false
+    });
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  document.getElementById('todayBtn').onclick = () => scrollToToday(true);
+  document.getElementById('monthPicker').onchange = e => {
+    if (!e.target.value) return;
+    let [y, m] = e.target.value.split('-').map(Number);
+    if (y < RANGE_START) { y = RANGE_START; m = 1; }
+    if (y > RANGE_END) { y = RANGE_END; m = 12; }
+    jumpToMonth(y, m - 1, false);
+  };
+  (() => {
+    const wrap = document.querySelector('.table-wrap');
+    let ticking = false;
+    wrap.addEventListener('scroll', () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => { ticking = false; updateCurrentMonth(); });
+    });
+  })();
+
+  // 셀 편집/메모는 표 전체에 이벤트 위임으로 처리(행이 약 1,800개라 개별 등록하지 않음)
+  (() => {
+    const body = document.getElementById('bodyRows');
+    let memoAnchor = null;
+    body.addEventListener('focusin', e => {
+      const area = e.target.closest('textarea.entry');
+      if (area) { area.dataset.init = area.value; return; }
+      const c = e.target.closest('.modified-cell');
+      if (c) showMemo(c, c.dataset.date);
+    });
+    body.addEventListener('focusout', e => {
+      if (e.target.closest('.modified-cell')) hideMemo();
+    });
+    body.addEventListener('mouseover', e => {
+      const c = e.target.closest('.modified-cell');
+      if (c && c !== memoAnchor) { memoAnchor = c; showMemo(c, c.dataset.date); }
+    });
+    body.addEventListener('mouseout', e => {
+      const c = e.target.closest('.modified-cell');
+      if (c && !c.contains(e.relatedTarget)) { memoAnchor = null; hideMemo(); }
+    });
+    body.addEventListener('input', e => {
+      const area = e.target.closest('textarea.entry');
+      if (!area) return;
+      const date = area.dataset.date;
+      const person = data.people[Number(area.dataset.pi)];
+      if (person === undefined) return;
+      const k = keyFor(date, person);
+      if (!currentUser || (isOlderThanSevenDays(date) && !isAdmin)) {
+        area.value = data.events[k] || '';
+        return;
+      }
+      if (area.value.trim()) data.events[k] = area.value;
+      else delete data.events[k];
+      if (!data.modified) data.modified = {};
+      if (!data.modifiedBy) data.modifiedBy = {};
+      if (!data.cellModified) data.cellModified = {};
+      if (!data.cellModifiedBy) data.cellModifiedBy = {};
+      const nowIso = new Date().toISOString();
+      data.modified[date] = nowIso;
+      data.modifiedBy[date] = currentUser;
+      data.cellModified[k] = nowIso;
+      data.cellModifiedBy[k] = currentUser;
+      area.title = `메모 · 수정 계정: ${currentUser} · 수정 날짜: ${formatModified(nowIso)}`;
+      area.parentElement.classList.toggle('note-cell', !!area.value);
+      persist();
+      const modifiedCell = area.closest('tr').querySelector('.modified-cell');
+      if (modifiedCell) {
+        modifiedCell.classList.add('has-memo');
+        modifiedCell.innerHTML = `${escapeHtml(formatModified(nowIso))}<br><strong>${escapeHtml(currentUser)}</strong>`;
+      }
+    });
+    // 기록은 입력이 끝나 값이 확정되는 change 이벤트에서 남깁니다.
+    body.addEventListener('change', e => {
+      const area = e.target.closest('textarea.entry');
+      if (!area) return;
+      const person = data.people[Number(area.dataset.pi)];
+      if (person === undefined) return;
+      const before = area.dataset.init || '';
+      if (area.value !== before) {
+        recordHistory(area.dataset.date, person, area.value, before);
+        area.dataset.init = area.value;
+        persist();
+      }
+    });
+  })();
+
+  document.getElementById('loginBtn').onclick = () => {
+    const username = prompt('사용자 아이디를 입력하세요:');
+    if (username === null) return;
+    const password = prompt('비밀번호를 입력하세요:');
+    if (password === null) return;
+    const account = accounts.find(a => a.username === username.trim().normalize('NFC') && a.password === password);
+    if (!account) { alert('아이디 또는 비밀번호가 올바르지 않습니다.'); return; }
+    currentUser = account.username;
+    sessionStorage.setItem('friendScheduleUser', currentUser);
+    updateAdminUI();
+    render();
+    alert(`${account.role === 'admin' ? '관리자' : '사용자'}로 로그인했습니다.`);
+  };
+  document.getElementById('logoutBtn').onclick = () => {
+    currentUser = '';
+    sessionStorage.removeItem('friendScheduleUser');
+    updateAdminUI();
+    render();
+  };
+
+  const accountsModal = document.getElementById('accountsModal');
+  document.getElementById('manageAccountsBtn').onclick = () => {
+    if (!isAdmin) { alert('계정 관리는 관리자만 할 수 있습니다.'); return; }
+    renderAccountsTable();
+    accountsModal.style.display = 'flex';
+  };
+  document.getElementById('closeAccounts').onclick = () => accountsModal.style.display = 'none';
+  accountsModal.addEventListener('click', e => { if (e.target === accountsModal) accountsModal.style.display='none'; });
+  document.getElementById('accountForm').onsubmit = e => {
+    e.preventDefault();
+    if (!isAdmin) { alert('계정 관리는 관리자만 할 수 있습니다.'); return; }
+    const username = document.getElementById('newUsername').value.trim().normalize('NFC');
+    const password = document.getElementById('newPassword').value;
+    const role = document.getElementById('newRole').value;
+    if (!/^[가-힣a-zA-Z0-9._-]{2,40}$/.test(username)) {
+      alert('아이디는 한글, 영문, 숫자, 점, 밑줄, 하이픈으로 2~40자 입력하세요.'); return;
+    }
+    if (password.length < 4) { alert('비밀번호는 4자 이상이어야 합니다.'); return; }
+    if (accounts.some(a => a.username.toLowerCase() === username.toLowerCase())) {
+      alert('이미 존재하는 아이디입니다.'); return;
+    }
+    accounts.push({username, password, role});
+    saveAccounts();
+    e.target.reset();
+    renderAccountsTable();
+    alert('계정을 등록했습니다.');
+  };
+
+  function renderAccountsTable() {
+    const wrap = document.getElementById('accountsTableWrap');
+    if (!isAdmin) { wrap.textContent = '관리자만 볼 수 있습니다.'; return; }
+    wrap.innerHTML = '<table class="account-list"><thead><tr><th>아이디</th><th>권한</th><th>관리</th></tr></thead><tbody>' +
+      accounts.map((a, i) => `<tr><td>${escapeHtml(a.username)}</td><td>${a.role === 'admin' ? '관리자' : '일반 사용자'}</td><td>` +
+      (a.username === currentUser ? '현재 로그인' : `<button type="button" data-delete-account="${i}">삭제</button>`) +
+      '</td></tr>').join('') + '</tbody></table>';
+    wrap.querySelectorAll('[data-delete-account]').forEach(btn => {
+      btn.onclick = () => {
+        if (!isAdmin) return;
+        const idx = Number(btn.getAttribute('data-delete-account'));
+        if (accounts[idx] && confirm(`계정 "${accounts[idx].username}"을 삭제할까요?`)) {
+          accounts.splice(idx, 1);
+          saveAccounts();
+          renderAccountsTable();
+        }
+      };
+    });
+  }
+
+  const modal = document.getElementById('peopleModal');
+  document.getElementById('managePeople').onclick = () => {
+    if (!isAdmin) { alert('항목 관리는 관리자만 할 수 있습니다.'); return; }
+    document.getElementById('peopleInput').value = data.people.join(', ');
+    modal.style.display = 'flex';
+  };
+  document.getElementById('cancelPeople').onclick = () => modal.style.display = 'none';
+  modal.addEventListener('click', e => { if (e.target === modal) modal.style.display='none'; });
+  document.getElementById('savePeople').onclick = () => {
+    const people = [...new Set(document.getElementById('peopleInput').value.split(',').map(s=>s.trim()).filter(Boolean))];
+    if (!people.length) { alert('친구 이름을 한 명 이상 입력해 주세요.'); return; }
+    const oldPeople = data.people;
+    // Keep events for retained people; remove events belonging to deleted columns.
+    const keep = new Set(people);
+    Object.keys(data.events).forEach(k => {
+      const person = k.slice(k.indexOf('|')+1);
+      if (!keep.has(person)) delete data.events[k];
+    });
+    data.people = people;
+    persist(); render(); modal.style.display='none';
+  };
+
+  updateAdminUI();
+  render();
+})();
+</script>
+</body>
+</html>
