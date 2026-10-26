@@ -90,8 +90,7 @@
 <div class="app">
   <header>
     <div>
-      <h1>📅 근무표</h1>
-      <div class="subtitle">엑셀처럼 날짜별 일정을 한눈에 확인하세요. (2026년 ~ 2028년)</div>
+      <h1 style="margin:0">📅 근무표 (2026년 ~ 2028년)</h1>
     </div>
     <div class="controls">
       <button id="prevMonthBtn" title="이전 달">◀ 이전달</button>
@@ -102,8 +101,7 @@
       <button id="loginBtn">로그인</button>
       <button id="logoutBtn" hidden>로그아웃</button>
       <button id="manageAccountsBtn" hidden>계정 관리</button>
-      <button id="managePeople">항목 관리</button>
-    </div>
+      <button id="managePeople">항목 관리</button>    </div>
   </header>
 
   <div class="table-wrap">
@@ -242,8 +240,7 @@
     document.getElementById('loginBtn').hidden = !!account;
     document.getElementById('logoutBtn').hidden = !account;
     document.getElementById('manageAccountsBtn').hidden = !isAdmin;
-    document.getElementById('managePeople').hidden = !isAdmin;
-  }
+    document.getElementById('managePeople').hidden = !isAdmin;  }
 
   function recordHistory(date, person, value, before) {
     dataCanon = null;
