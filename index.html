@@ -85,7 +85,7 @@
   <header>
     <div>
       <h1>📅 근무표</h1>
-      <div class="subtitle">엑셀처럼 날짜별 일정을 한눈에 확인하세요. (2026년 ~ 2030년)</div>
+      <div class="subtitle">엑셀처럼 날짜별 일정을 한눈에 확인하세요. (2026년 ~ 2028년)</div>
     </div>
     <div class="controls">
       <button id="todayBtn" class="primary">오늘</button>
@@ -511,28 +511,28 @@
       n++;
     }
   }
-  let lastCenterIdx = -1; // 탐색 시작점 기억 (스크롤마다 전체 탐색 방지)
   function ensureMonths() {
-    const wrap = document.querySelector('.table-wrap');
-    const wRect = wrap.getBoundingClientRect();
-    // 마지막 중심 근처부터 이분 탐색으로 보이는 월 찾기
-    let lo = 0, hi = monthRowEls.length - 1, start = 0;
-    while (lo <= hi) {
-      const mid = (lo + hi) >> 1;
-      if (monthRowEls[mid].getBoundingClientRect().bottom >= wRect.top - 900) { start = mid; hi = mid - 1; }
-      else lo = mid + 1;
+    try {
+      const wrap = document.querySelector('.table-wrap');
+      const wRect = wrap.getBoundingClientRect();
+      const margin = 900;
+      let min = -1, max = -1;
+      // 월은 36개뿐이라 전체 검사가 가장 견고하다 (스크롤바 점프에도 안전)
+      for (let i = 0; i < monthRowEls.length; i++) {
+        const r = monthRowEls[i].getBoundingClientRect();
+        if (r.bottom < wRect.top - margin || r.top > wRect.bottom + margin) continue;
+        if (min < 0) min = i;
+        max = i;
+      }
+      if (min < 0) return;
+      for (let i = Math.max(0, min - 1); i <= Math.min(monthRowEls.length - 1, max + 1); i++) attachMonth(i);
+      const keepMin = min - 2, keepMax = max + 2;
+      for (const i of Array.from(loaded)) {
+        if (i < keepMin || i > keepMax) detachMonth(i);
+      }
+    } catch (err) {
+      console.error('ensureMonths 오류:', err);
     }
-    let end = start;
-    while (end < monthRowEls.length && monthRowEls[end].getBoundingClientRect().top <= wRect.bottom + 900) end++;
-    if (start > end) return;
-    const min = Math.max(0, start - 1);
-    const max = Math.min(monthRowEls.length - 1, end);
-    for (let i = min; i <= max; i++) attachMonth(i);
-    const keepMin = min - 2, keepMax = max + 2;
-    for (const i of Array.from(loaded)) {
-      if (i < keepMin || i > keepMax) detachMonth(i);
-    }
-    lastCenterIdx = (min + max) >> 1;
   }
 
   function render() {
