@@ -370,8 +370,11 @@
 
   const memoPop = document.getElementById('memoPop');
   function buildMemoHtml(date) {
-    const items = (Array.isArray(data.history) ? data.history : [])
-      .filter(h => h.date === date).slice(-10).reverse();
+    // 히스토리 인덱스 재사용 (전체 순회 대신 해당 날짜만 조회)
+    const all = (typeof data._histByDate === 'object' && data._histByDate && data._histStamp === (data.history ? data.history.length : 0))
+      ? (data._histByDate[date] || [])
+      : (data.history || []).filter(h => h.date === date);
+    const items = all.slice(-10).reverse();
     const title = `<div class="memo-title">${escapeHtml(date)} 최근 수정 내역 (최신순 · 최대 10건)</div>`;
     if (!items.length) {
       const stamp = data.modified && data.modified[date];
@@ -514,7 +517,7 @@
     applyOps(remote, dirty);           // 아직 저장 전인 내 수정은 유지
     const remoteCanon = canon(remote);
     if (remoteCanon === getDataCanon()) return; // 내 저장이 돌아온 경우 등
-    // (저장 전 변경분은 위에서 서버 값 위에 다시 얹었으므로 덮어쓸 걱정 없음)                                    // 내 수정이 아직 저장 전이면 덮어쓰지 않음
+    // (저장 전 변경분은 위에서 서버 값 위에 다시 얹었으므로 덮어쓸 걱정 없음)
     if (isEditing()) { pendingRemote = true; return; }           // 입력 중이면 나중에
     applyingRemote = true;
     data = remote;
@@ -695,7 +698,7 @@
       }).join('');
       const mDate = data.modified && data.modified[date];
       const mUser = data.modifiedBy && data.modifiedBy[date];
-      const modCell = `<td class="date-cell modified-cell${(mDate || ctx.histDates.has(date)) ? ' has-memo' : ''}" tabindex="0" data-date="${date}">` +
+      const modCell = `<td class="date-cell modified-cell${(mDate || (ctx.histByDate[date] && ctx.histByDate[date].length)) ? ' has-memo' : ''}" tabindex="0" data-date="${date}">` +
         modifiedInnerHtml(mDate, mUser) + '</td>';
       const dateCls = 'date-cell ' + (dow === 0 ? 'weekend-sun' : dow === 6 ? 'weekend-sat' : '') + (isToday ? ' today' : '') + (HOLIDAYS[date] ? ' holiday' : '');
       const shift = shiftOf(y, m, d);
@@ -748,7 +751,10 @@
     if (window.matchMedia('(max-width: 700px)').matches) {
       const card = document.querySelector(`#mobileCards .day-card[data-date="${dateStr}"]`);
       if (!card) return false;
-      card.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      // smooth 애니메이션은 렌더 직후 위치 계산과 경쟁해 어긋나므로 즉시 이동
+      const pageHeader = document.querySelector('.app header');
+      const targetY = card.getBoundingClientRect().top + window.pageYOffset - (pageHeader ? pageHeader.offsetHeight + 8 : 8);
+      window.scrollTo(0, Math.max(0, targetY));
       return true;
     }
     let row = document.querySelector(`#bodyRows tr[data-date="${dateStr}"]`);
@@ -770,19 +776,32 @@
   function render(opts) {
     const mode = (opts && opts.scroll) || 'keep';
     const prevTop = wrapEl.scrollTop;
+    hideMemo(); // 다시 그린 뒤에도 옛 팝업이 떠 있는 것 방지
     try {
       const header = document.getElementById('headerRow');
-      header.innerHTML = '<th class="date-col">날짜</th>' +
+      const headerHtml = '<th class="date-col">날짜</th>' +
         data.people.map(p => `<th class="person-col">${escapeHtml(p)}</th>`).join('') +
         '<th class="mod-col">마지막 수정일 / 수정자</th>';
+      if (header.dataset.html !== headerHtml) { // 사람 목록이 바뀐 경우만 갱신 (불필요한 재배치 방지)
+        header.innerHTML = headerHtml;
+        header.dataset.html = headerHtml;
+      }
       const cols = data.people.length + 2;
       const body = document.getElementById('bodyRows');
       const now = new Date();
       const cut = new Date(now); cut.setDate(cut.getDate() - 7);
+      // 히스토리 날짜 인덱스: 히스토리가 커져도 이 조회는 O(1) (매번 전체 순회하지 않음)
+      let histByDate = data._histByDate;
+      if (!histByDate || data._histStamp !== (data.history ? data.history.length : 0)) {
+        histByDate = {};
+        for (const h of (data.history || [])) { (histByDate[h.date] = histByDate[h.date] || []).push(h); }
+        data._histByDate = histByDate;
+        data._histStamp = data.history ? data.history.length : 0;
+      }
       const ctx = {
         ty: now.getFullYear(), tm: now.getMonth(), td: now.getDate(),
         cutoffStr: fmtDate(cut.getFullYear(), cut.getMonth(), cut.getDate()),
-        histDates: new Set((data.history || []).map(h => h.date)),
+        histByDate,
         pe: data.people.map(p => escapeHtml(p))
       };
       const parts = [];
@@ -809,13 +828,16 @@
       document.getElementById('bodyRows').innerHTML =
         `<tr><td colspan="8" style="color:#dc2626;padding:16px">렌더링 오류: ${escapeHtml(String(err && err.message || err))}</td></tr>`;
     }
-    if (mode === 'top') wrapEl.scrollTop = 0;
-    else if (mode === 'today') { if (!scrollToToday()) wrapEl.scrollTop = 0; }
+    if (mode === 'top') {
+      wrapEl.scrollTop = 0;
+      if (window.matchMedia('(max-width: 700px)').matches) window.scrollTo(0, 0); // 모바일은 창 스크롤이 본체
+    }
+    else if (mode === 'today') { if (!scrollToToday()) { wrapEl.scrollTop = 0; window.scrollTo(0, 0); } }
     else wrapEl.scrollTop = prevTop;
   }
   function shiftMonth(delta) {
     currentMonth = clampMonth(currentMonth.getFullYear(), currentMonth.getMonth() + delta);
-    render({ scroll: 'top' });
+    render({ scroll: 'top' }); // 해당월 1일이 맨 위에 오도록
   }
   function formatModified(value) {
     if (!value) return '—';
@@ -834,6 +856,8 @@
     const now = new Date();
     currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     render({ scroll: 'today' });
+    // 레이아웃이 완전히 잡힌 뒤 한 번 더 정확히 보정 (첫 계산이 어긋나는 문제 방지)
+    requestAnimationFrame(() => requestAnimationFrame(() => scrollToToday()));
   };
   const floatingTodayBtn = document.getElementById('floatingTodayBtn');
   if (floatingTodayBtn) floatingTodayBtn.onclick = () => {
@@ -858,6 +882,7 @@
   (() => {
     const body = document.getElementById('bodyRows');
     let memoAnchor = null;
+    let memoThrottle = null;
     document.addEventListener('focusin', e => {
       const area = e.target.closest('textarea.entry');
       if (area) { area.dataset.init = area.value; return; }
@@ -871,11 +896,17 @@
     });
     body.addEventListener('mouseover', e => {
       const c = e.target.closest('.modified-cell');
-      if (c && c !== memoAnchor) { memoAnchor = c; showMemo(c, c.dataset.date); }
+      if (c && c !== memoAnchor) {
+        memoAnchor = c;
+        // 커서가 셀을 빠르게 훑을 때 매번 팝업을 다시 만들지 않도록 60ms 스로틀
+        const target = c, date = c.dataset.date;
+        if (memoThrottle) return;
+        memoThrottle = setTimeout(() => { memoThrottle = null; if (memoAnchor === target) showMemo(target, date); }, 60);
+      }
     });
     body.addEventListener('mouseout', e => {
       const c = e.target.closest('.modified-cell');
-      if (c && !c.contains(e.relatedTarget)) { memoAnchor = null; hideMemo(); }
+      if (c && !c.contains(e.relatedTarget)) { memoAnchor = null; if (memoThrottle) { clearTimeout(memoThrottle); memoThrottle = null; } hideMemo(); }
     });
     document.addEventListener('input', e => {
       const area = e.target.closest('textarea.entry');
@@ -917,10 +948,18 @@
       if (modifiedCell) {
         modifiedCell.classList.add('has-memo');
         modifiedCell.innerHTML = modifiedInnerHtml(nowIso, currentUser);
+      } else {
+        // 모바일 카드에서 편집한 경우: 같은 날짜의 PC 표 수정일 셀도 함께 갱신
+        const pcCell = document.querySelector(`#bodyRows tr[data-date="${date}"] .modified-cell`);
+        if (pcCell) {
+          pcCell.classList.add('has-memo');
+          pcCell.innerHTML = modifiedInnerHtml(nowIso, currentUser);
+        }
       }
-      const card = area.closest('.day-card');
-      const mobileModified = card && card.querySelector('.mobile-modified-value');
-      if (mobileModified) mobileModified.textContent = `${formatModifiedShort(nowIso)} · ${currentUser}`;
+      // 모바일 카드 쪽 수정일 표시도 갱신 (PC에서 편집해도 반영)
+      document.querySelectorAll(`.day-card[data-date="${date}"] .mobile-modified-value`).forEach(el => {
+        el.textContent = `${formatModifiedShort(nowIso)} · ${currentUser}`;
+      });
     });
     // 기록은 입력이 끝나 값이 확정되는 change 이벤트에서 남깁니다.
     document.addEventListener('change', e => {
