@@ -18,7 +18,6 @@
   button.primary { background:var(--blue); color:white; border-color:var(--blue); }
   button:hover { filter:brightness(.97); }
   input[type="month"], input[type="text"], input[type="date"], select { border:1px solid #cbd5e1; border-radius:7px; padding:9px; background:white; }
-  .notice { background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; border-radius:8px; padding:10px 12px; font-size:13px; margin-bottom:14px; }
   .table-wrap { height:calc(100vh - 190px); min-height:400px; overflow:auto; border:1px solid var(--line); border-radius:10px; background:white; box-shadow:0 3px 12px #0f172a0a; }
   table { border-collapse:separate; border-spacing:0; width:100%; min-width:900px; table-layout:fixed; }
   th, td { border-right:1px solid var(--line); border-bottom:1px solid var(--line); }
@@ -26,7 +25,7 @@
   tr:last-child td { border-bottom:0; }
   thead th { background:var(--head); padding:11px 8px; font-size:13px; text-align:center; position:sticky; top:0; z-index:2; }
   th.date-col { width:150px; }
-  th.day-col { width:42px; }
+  th.mod-col { width:210px; }
   th.person-col { width:190px; }
   tbody td { height:76px; padding:6px; vertical-align:top; }
   tbody tr.month-row td { height:auto; padding:8px 12px; background:#e8eefc; color:#1e3a8a; font-weight:700; font-size:14px; border-right:0; }
@@ -52,14 +51,17 @@
   .bottom { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-top:12px; font-size:12px; color:#64748b; }
   .legend { display:flex; gap:12px; flex-wrap:wrap; }
   .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; }
-  .empty { text-align:center; padding:30px; color:#64748b; }
   .locked-entry { background:#f1f5f9 !important; color:#64748b; cursor:not-allowed; }
   .admin-badge { font-size:12px; padding:7px 10px; border-radius:7px; background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; }
   .admin-badge.viewer { background:#fff7ed; color:#9a3412; border-color:#fed7aa; }
-  td.modified-cell { white-space:pre-line; font-size:11px; line-height:1.45; cursor:default; }
+  /* 마지막 수정일: 날짜 옆에 수정자 표기 */
+  td.modified-cell { position:relative; font-size:11px; line-height:1.45; cursor:default; }
   td.modified-cell.has-memo { cursor:help; }
   td.modified-cell.has-memo::after { content:''; position:absolute; right:0; top:0; width:0; height:0; border-top:9px solid #dc2626; border-left:9px solid transparent; pointer-events:none; }
   td.modified-cell:focus { outline:2px solid #93c5fd; outline-offset:-2px; }
+  .mod-line { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 8px; }
+  .mod-date { color:#475569; white-space:nowrap; }
+  .mod-user { font-weight:700; color:#1e293b; overflow-wrap:anywhere; }
   #memoPop { position:fixed; display:none; z-index:50; min-width:230px; max-width:360px; background:#ffffe1; border:1px solid #000; padding:6px 8px; font:12px/1.45 "Malgun Gothic",Arial,sans-serif; color:#000; box-shadow:3px 3px 6px #0004; pointer-events:none; }
   #memoPop .memo-title { font-weight:700; margin-bottom:5px; padding-bottom:3px; border-bottom:1px solid #c9c9a0; }
   #memoPop .memo-item { margin:0 0 5px; }
@@ -69,14 +71,18 @@
   .note-cell { position:relative; }
   .note-cell::after { content:''; position:absolute; right:0; top:0; width:0; height:0; border-top:9px solid #f59e0b; border-left:9px solid transparent; pointer-events:none; }
   .small-note { color:#64748b; font-size:12px; margin-top:8px; }
-  .account-list { width:100%; border-collapse:collapse; min-width:0; }
+  .account-list { width:100%; border-collapse:collapse; min-width:0; table-layout:auto; }
   .account-list th,.account-list td { padding:8px; border:1px solid var(--line); text-align:left; font-size:13px; }
-  .account-list th { background:var(--head); }
+  .account-list th { background:var(--head); position:sticky; top:0; z-index:1; }
   .modal-backdrop { position:fixed; inset:0; background:#0f172a66; display:none; align-items:center; justify-content:center; padding:16px; z-index:10; }
-  .modal { width:min(460px,100%); background:white; border-radius:12px; padding:20px; box-shadow:0 20px 50px #0003; }
+  /* 모달이 화면보다 길어지면 모달 안에서 스크롤 */
+  .modal { width:min(460px,100%); max-height:calc(100vh - 32px); max-height:calc(100dvh - 32px); overflow-y:auto; background:white; border-radius:12px; padding:20px; box-shadow:0 20px 50px #0003; }
   .modal h2 { margin:0 0 14px; font-size:19px; }
   .form-row { display:grid; gap:6px; margin:12px 0; font-size:13px; }
   .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
+  /* 계정 목록: 많아지면 목록만 스크롤 */
+  #accountsTableWrap { max-height:min(40vh,320px); overflow-y:auto; border:1px solid var(--line); border-radius:8px; }
+  #accountsTableWrap .account-list th, #accountsTableWrap .account-list td { border-left:0; border-right:0; }
   @media(max-width:700px) { .app{padding:12px} h1{font-size:21px} th.person-col{width:150px} }
 </style>
 </head>
@@ -120,10 +126,10 @@
 
 <div class="modal-backdrop" id="peopleModal">
   <div class="modal">
-    <h2>친구 관리</h2>
-    <p style="font-size:13px;color:#64748b">표에 표시할 친구 이름을 쉼표로 구분해 입력하세요. 예: 민수, 지영, 나</p>
-    <label class="form-row">친구 이름 목록
-      <input type="text" id="peopleInput" placeholder="민수, 지영, 나">
+    <h2>항목 관리</h2>
+    <p style="font-size:13px;color:#64748b">표에 표시할 항목 이름을 쉼표로 구분해 입력하세요. 예: 휴가자1, 휴가자2, Remark1</p>
+    <label class="form-row">항목 이름 목록
+      <input type="text" id="peopleInput" placeholder="휴가자1, 휴가자2, Remark1">
     </label>
     <div class="modal-actions">
       <button id="cancelPeople">취소</button>
@@ -159,7 +165,7 @@
 <script>
 (() => {
   const STORAGE_KEY = 'friendScheduleV1';
-  // ===== Firebase 실시간 동기화 설정: 아래 firebaseConfig만 교체하면 작동 =====
+  // ===== Firebase 실시간 동기화 설정 =====
   const firebaseConfig = {
     apiKey: "AIzaSyBh5_5nvMBaiOaf4vuze0HNfUUVSkKdG-I",
     authDomain: "shift-schedule-bdf92.firebaseapp.com",
@@ -169,10 +175,12 @@
     messagingSenderId: "337621972785",
     appId: "1:337621972785:web:36f87d7e1b4577681ee210"
   };
-  const SYNC_ENABLED = !firebaseConfig.apiKey.includes('여기에'); // 설정 넣으면 true
-  const DB_PATH = 'schedule/main'; // 데이터 저장 위치
-  let applyingRemote = false; // 원격 적용 중 저장 방지
+  const SYNC_ENABLED = !firebaseConfig.apiKey.includes('여기에');
+  const DB_PATH = 'schedule/main';
+  let applyingRemote = false;
+  let pendingRemote = false; // 입력 중이라 보류된 원격 변경이 있는지
   let db = null;
+  let dataCanon = null; // 현재 data의 비교용 직렬화 캐시 (data가 바뀌면 null로 무효화)
 
   if (!localStorage.getItem('friendScheduleResetV4')) {
     localStorage.removeItem(STORAGE_KEY);
@@ -187,7 +195,6 @@
   let currentUser = sessionStorage.getItem('friendScheduleUser') || '';
   const DEFAULT_ADMIN = { username: 'admin', password: 'admin', role: 'admin' };
   let accounts = loadAccounts();
-  // 기존 저장된 admin 계정의 비밀번호를 새 기본값으로 갱신 (사용자가 계정 관리에서 바꾸지 않은 경우만)
   {
     const adm = accounts.find(a => a.username === 'admin');
     if (adm && (adm.password === 'admin1234')) adm.password = 'admin';
@@ -239,6 +246,7 @@
   }
 
   function recordHistory(date, person, value, before) {
+    dataCanon = null;
     if (!Array.isArray(data.history)) data.history = [];
     const now = new Date();
     data.history.push({
@@ -288,7 +296,7 @@
     memoPop.style.top = Math.max(8, top) + 'px';
   }
   function hideMemo() { memoPop.style.display = 'none'; }
-  window.addEventListener('scroll', hideMemo, true);
+  window.addEventListener('scroll', () => { if (memoPop.style.display === 'block') hideMemo(); }, true);
 
   function loadData() {
     try {
@@ -308,7 +316,7 @@
     } catch (e) {}
     return { people: [...DEFAULT_PEOPLE], events: {}, modified: {}, modifiedBy: {}, cellModified: {}, cellModifiedBy: {}, history: [] };
   }
-  // 서버/로컬에서 온 데이터를 항상 올바른 형태로 강제 정규화 (Firebase가 배열을 객체로 바꾸는 등의 문제 방지)
+  // 서버/로컬 데이터를 항상 올바른 형태로 정규화 (Firebase가 배열을 객체로 바꾸는 문제 방지)
   function normalizeData(d) {
     if (!d || typeof d !== 'object' || Array.isArray(d)) d = {};
     if (!Array.isArray(d.people)) {
@@ -328,7 +336,21 @@
     }
     return d;
   }
-  // 입력 중에는 저장을 모아서 처리(디바운스) — 글자마다 전체 JSON 저장으로 인한 타이핑 지연 제거
+  // 키 순서와 상관없이 같은 내용이면 같은 문자열이 되도록 비교용 직렬화
+  function canon(v) {
+    if (Array.isArray(v)) return '[' + v.map(canon).join(',') + ']';
+    if (v && typeof v === 'object') return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + canon(v[k])).join(',') + '}';
+    return JSON.stringify(v === undefined ? null : v);
+  }
+  function getDataCanon() {
+    if (dataCanon === null) dataCanon = canon(normalizeData(data));
+    return dataCanon;
+  }
+  function isEditing() {
+    const ae = document.activeElement;
+    return !!(ae && ae.matches && ae.matches('textarea.entry'));
+  }
+
   let persistTimer = null;
   function persistSoon(delay) {
     clearTimeout(persistTimer);
@@ -337,74 +359,74 @@
   function persist() {
     clearTimeout(persistTimer);
     persistTimer = null;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    const json = JSON.stringify(data); // 한 번만 직렬화해서 로컬/서버 저장에 같이 사용
+    try { localStorage.setItem(STORAGE_KEY, json); } catch (e) {}
     document.getElementById('saveStatus').textContent =
       '저장됨 · ' + new Date().toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
-    if (SYNC_ENABLED) pushToServer();
+    if (SYNC_ENABLED) pushToServer(json);
+  }
+
+  // 서버에서 온 값을 화면에 반영 (내용이 같으면 아무것도 하지 않음 → 스크롤/입력 유지)
+  function applyRemote(val) {
+    if (!val) return;
+    const remote = normalizeData(val); // snapshot.val()은 매번 새 객체라 복제 불필요
+    const remoteCanon = canon(remote);
+    if (remoteCanon === getDataCanon()) return; // 내 저장이 돌아온 경우 등
+    if (persistTimer) return;                                    // 내 수정이 아직 저장 전이면 덮어쓰지 않음
+    if (isEditing()) { pendingRemote = true; return; }           // 입력 중이면 나중에
+    applyingRemote = true;
+    data = remote;
+    dataCanon = remoteCanon;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
+    render(); // 스크롤 위치 유지
+    applyingRemote = false;
+    document.getElementById('saveStatus').textContent = '공유 동기화됨 · ' + new Date().toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
+  }
+  async function flushPendingRemote() {
+    if (!pendingRemote || !db || isEditing() || persistTimer) return;
+    pendingRemote = false;
+    try {
+      const snap = await db.ref(DB_PATH).get();
+      applyRemote(snap.val());
+    } catch (e) {}
   }
 
   // ===== Firebase 실시간 동기화 =====
   async function initFirebase() {
     if (!SYNC_ENABLED) return;
     try {
-      // Firebase compat SDK를 필요할 때 동적으로 로드
       if (!window.firebase) {
-        await new Promise((resolve, reject) => {
-          const s1 = document.createElement('script');
-          s1.src = 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js';
-          s1.onload = resolve; s1.onerror = reject;
-          document.head.appendChild(s1);
-        });
-        await new Promise((resolve, reject) => {
-          const s2 = document.createElement('script');
-          s2.src = 'https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js';
-          s2.onload = resolve; s2.onerror = reject;
-          document.head.appendChild(s2);
-        });
+        // 두 스크립트를 동시에 내려받고, 실행 순서(app → database)는 async=false로 보장
+        await Promise.all(['firebase-app-compat.js', 'firebase-database-compat.js'].map(f => new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://www.gstatic.com/firebasejs/9.23.0/' + f;
+          s.async = false;
+          s.onload = resolve; s.onerror = reject;
+          document.head.appendChild(s);
+        })));
       }
       firebase.initializeApp(firebaseConfig);
       db = firebase.database();
 
-      // 서버에 데이터가 없으면(첫 실행) 현재 브라우저 데이터를 올린다
       const snap = await db.ref(DB_PATH).get();
       if (!snap.exists()) {
         await db.ref(DB_PATH).set(JSON.parse(JSON.stringify(data)));
       } else {
-        // 서버 데이터가 기준 — 정규화 후 적용
-        applyingRemote = true;
-        data = normalizeData(snap.val());
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        render();
-        applyingRemote = false;
+        applyRemote(snap.val());
       }
 
-      // 실시간 리스너: 다른 사람이 수정하면 즉시 반영
-      db.ref(DB_PATH).on('value', snapshot => {
-        if (applyingRemote) return;
-        const remote = snapshot.val();
-        if (!remote) return;
-        if (JSON.stringify(data) === JSON.stringify(remote)) return; // 자기 수정은 무시
-        // 편집 중(포커스 있는 textarea)이면 지금은 화면을 다시 그리지 않는다 — 입력 보호
-        const ae = document.activeElement;
-        if (ae && ae.closest && ae.closest('textarea.entry')) return;
-        applyingRemote = true;
-        data = normalizeData(remote);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        render(); // 단일 월 렌더라 스크롤 앵커 불필요 (항상 1행부터)
-        applyingRemote = false;
-        document.getElementById('saveStatus').textContent = '공유 동기화됨 · ' + new Date().toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
-      });
+      db.ref(DB_PATH).on('value', snapshot => applyRemote(snapshot.val()));
       document.getElementById('saveStatus').textContent = '실시간 공유 연결됨';
     } catch (err) {
       console.error('Firebase 초기화 실패:', err);
       document.getElementById('saveStatus').textContent = '공유 연결 실패 (로컬 저장만 사용)';
     }
   }
-  async function pushToServer() {
+  async function pushToServer(json) {
     if (!SYNC_ENABLED || !db || applyingRemote) return;
     document.getElementById('saveStatus').textContent = '서버 저장 중…';
     try {
-      await db.ref(DB_PATH).set(JSON.parse(JSON.stringify(data)));
+      await db.ref(DB_PATH).set(JSON.parse(json || JSON.stringify(data)));
       document.getElementById('saveStatus').textContent = '공유됨 · ' + new Date().toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
     } catch (err) {
       document.getElementById('saveStatus').textContent = '서버 저장 실패 (오프라인 저장됨)';
@@ -419,8 +441,6 @@
   }
   const RANGE_START = 2026, RANGE_END = 2028;
   // ===== 4조 3교대 6일 순환 (2조 기준 표기) =====
-  // A=오전, B=오후, C=야간, 휴=휴무. 6일 근무 후 2일 휴무, 24일 주기.
-  // 2조 기준: 2026-10-24~29 A조(오전) → 휴무 2일 → 11/1~6 B조(오후) → 휴무 2일 → 11/9~14 C조(야간) → ...
   const SHIFT_ANCHOR = new Date(2026, 9, 24);
   const SHIFT_CYCLE = [
     { label: 'A조', desc: '오전', days: 6 },
@@ -458,32 +478,38 @@
     '2028-10-02': '추석', '2028-10-03': '개천절·추석', '2028-10-04': '추석', '2028-10-09': '한글날',
     '2028-12-25': '크리스마스'
   };
-  const MONTH_COUNT = (RANGE_END - RANGE_START + 1) * 12;
   const WEEKDAYS = ['일','월','화','수','목','금','토'];
+  const wrapEl = document.querySelector('.table-wrap');
 
-  // ===== 단일 월 렌더링: 선택된 달만 표시 (긴 스크롤 제거) =====
   function clampMonth(y, m) {
     let idx = y * 12 + m;
     const minIdx = RANGE_START * 12, maxIdx = RANGE_END * 12 + 11;
     if (idx < minIdx) idx = minIdx;
     if (idx > maxIdx) idx = maxIdx;
-    const cy = Math.floor(idx / 12), cm = idx % 12;
-    return new Date(cy, cm, 1);
+    return new Date(Math.floor(idx / 12), idx % 12, 1);
   }
 
-  function buildMonthDayRows(y, m) {
-    const now = new Date();
-    const ty = now.getFullYear(), tm = now.getMonth(), tdd = now.getDate();
-    const cut = new Date(now); cut.setDate(cut.getDate() - 7);
-    const cutoffStr = fmtDate(cut.getFullYear(), cut.getMonth(), cut.getDate());
-    const histDates = new Set((data.history || []).map(h => h.date));
+  // 마지막 수정일 셀: 날짜 옆에 수정자 표기
+  function formatModifiedShort(value) {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+  function modifiedInnerHtml(stamp, user) {
+    if (!stamp) return '—';
+    return `<div class="mod-line"><span class="mod-date">${escapeHtml(formatModifiedShort(stamp))}</span><strong class="mod-user">${escapeHtml(user || '이전 기록')}</strong></div>`;
+  }
+
+  function buildMonthDayRows(y, m, ctx) {
     const rows = [];
     const days = new Date(y, m+1, 0).getDate();
     for (let d = 1; d <= days; d++) {
       const date = fmtDate(y, m, d);
       const dow = new Date(y, m, d).getDay();
-      const isToday = (y === ty && m === tm && d === tdd);
-      const locked = !currentUser || (date < cutoffStr && !isAdmin);
+      const isToday = (y === ctx.ty && m === ctx.tm && d === ctx.td);
+      const locked = !currentUser || (date < ctx.cutoffStr && !isAdmin);
       const lockTitle = !currentUser ? '수정하려면 먼저 로그인하세요.' : '7일이 지난 일정은 관리자만 수정할 수 있습니다.';
       const cells = data.people.map((person, pi) => {
         const k = keyFor(date, person);
@@ -493,62 +519,86 @@
         let title = stamp ? `메모 · 수정 계정: ${who || '알 수 없음'} · 수정 날짜: ${formatModified(stamp)}` : '';
         if (locked) title = title ? `${title}\n${lockTitle}` : lockTitle;
         const tdCls = 'person-cell' + (stamp && val ? ' note-cell' : '');
-        return `<td class="${tdCls}"><textarea class="entry${locked ? ' locked-entry' : ''}" data-date="${date}" data-pi="${pi}"${locked ? ' disabled' : ''}${title ? ` title="${escapeHtml(title)}"` : ''} aria-label="${date} ${escapeHtml(person)} 일정">\n${escapeHtml(val)}</textarea></td>`;
+        return `<td class="${tdCls}"><textarea class="entry${locked ? ' locked-entry' : ''}" data-date="${date}" data-pi="${pi}"${locked ? ' disabled' : ''}${title ? ` title="${escapeHtml(title)}"` : ''} aria-label="${date} ${ctx.pe[pi]} 일정">\n${escapeHtml(val)}</textarea></td>`;
       }).join('');
       const mDate = data.modified && data.modified[date];
       const mUser = data.modifiedBy && data.modifiedBy[date];
-      const modCell = `<td class="date-cell modified-cell${(mDate || histDates.has(date)) ? ' has-memo' : ''}" tabindex="0" data-date="${date}">` +
-        (mDate ? `${escapeHtml(formatModified(mDate))}<br><strong>${escapeHtml(mUser || '이전 기록')}</strong>` : '—') + '</td>';
+      const modCell = `<td class="date-cell modified-cell${(mDate || ctx.histDates.has(date)) ? ' has-memo' : ''}" tabindex="0" data-date="${date}">` +
+        modifiedInnerHtml(mDate, mUser) + '</td>';
       const dateCls = 'date-cell ' + (dow === 0 ? 'weekend-sun' : dow === 6 ? 'weekend-sat' : '') + (isToday ? ' today' : '') + (HOLIDAYS[date] ? ' holiday' : '');
       const shift = shiftOf(y, m, d);
       const holidayName = HOLIDAYS[date] ? `<span class="holiday-name">${escapeHtml(HOLIDAYS[date])}</span>` : '';
       const shiftTag = shift.label === '휴무'
         ? '<span class="shift-tag shift-off">휴무</span>'
         : `<span class="shift-tag shift-${shift.label[0].toLowerCase()}">${shift.label}</span>`;
-      const tr = document.createElement('tr');
-      tr.dataset.date = date;
-      if (isToday) tr.id = 'todayRow';
-      tr.innerHTML = `<td class="${dateCls}"><span class="date-num">${d}일</span><span class="weekday">${WEEKDAYS[dow]}</span>${shiftTag}${holidayName}</td>${cells}${modCell}`;
-      rows.push(tr);
+      // DOM 노드를 하나씩 만들지 않고 HTML 문자열로 모아 한 번에 삽입 (훨씬 빠름)
+      rows.push(`<tr data-date="${date}"${isToday ? ' id="todayRow"' : ''}><td class="${dateCls}"><span class="date-num">${d}일</span><span class="weekday">${WEEKDAYS[dow]}</span>${shiftTag}${holidayName}</td>${cells}${modCell}</tr>`);
     }
     return rows;
   }
 
-  function render() {
+  // 지정한 날짜 행을 헤더 바로 아래로 스크롤
+  // rowsAbove: 해당 날짜 위로 몇 줄을 더 보이게 할지 (딱 붙지 않도록 여백)
+  function scrollToDate(dateStr, rowsAbove) {
+    let row = document.querySelector(`#bodyRows tr[data-date="${dateStr}"]`);
+    if (!row) return false;
+    for (let i = 0; i < (rowsAbove || 0); i++) {
+      if (!row.previousElementSibling) break;
+      row = row.previousElementSibling;
+    }
+    const head = wrapEl.querySelector('thead');
+    wrapEl.scrollTop = row.getBoundingClientRect().top - wrapEl.getBoundingClientRect().top + wrapEl.scrollTop - head.offsetHeight;
+    return true;
+  }
+  function scrollToToday() {
+    const now = new Date();
+    return scrollToDate(fmtDate(now.getFullYear(), now.getMonth(), now.getDate()), 2); // 오늘 위로 2줄 보이게
+  }
+
+  // opts.scroll: 'keep'(기본, 현재 스크롤 유지) | 'top' | 'today'
+  function render(opts) {
+    const mode = (opts && opts.scroll) || 'keep';
+    const prevTop = wrapEl.scrollTop;
     try {
       const header = document.getElementById('headerRow');
       header.innerHTML = '<th class="date-col">날짜</th>' +
         data.people.map(p => `<th class="person-col">${escapeHtml(p)}</th>`).join('') +
-        '<th class="date-col">마지막 수정일</th>';
+        '<th class="mod-col">마지막 수정일 / 수정자</th>';
       const cols = data.people.length + 2;
       const body = document.getElementById('bodyRows');
-      const y = currentMonth.getFullYear(), m = currentMonth.getMonth();
-      const rows = buildMonthDayRows(y, m);
-      const frag = document.createDocumentFragment();
-      // 월 제목행 + 일 행들
-      const monthTr = document.createElement('tr');
-      monthTr.className = 'month-row';
-      monthTr.innerHTML = `<td colspan="${cols}"><span>${y}년 ${m + 1}월</span></td>`;
-      frag.appendChild(monthTr);
-      rows.forEach(r => frag.appendChild(r));
-      body.innerHTML = '';
-      body.appendChild(frag);
+      const now = new Date();
+      const cut = new Date(now); cut.setDate(cut.getDate() - 7);
+      const ctx = {
+        ty: now.getFullYear(), tm: now.getMonth(), td: now.getDate(),
+        cutoffStr: fmtDate(cut.getFullYear(), cut.getMonth(), cut.getDate()),
+        histDates: new Set((data.history || []).map(h => h.date)),
+        pe: data.people.map(p => escapeHtml(p))
+      };
+      const parts = [];
+      // 선택한 달 + 익월까지 이어서 표시 (범위를 넘으면 가능한 달까지만)
+      const baseIdx = currentMonth.getFullYear() * 12 + currentMonth.getMonth();
+      const maxIdx = RANGE_END * 12 + 11;
+      for (let idx = baseIdx; idx <= Math.min(baseIdx + 1, maxIdx); idx++) {
+        const y = Math.floor(idx / 12), m = idx % 12;
+        parts.push(`<tr class="month-row"><td colspan="${cols}"><span>${y}년 ${m + 1}월</span></td></tr>`);
+        buildMonthDayRows(y, m, ctx).forEach(r => parts.push(r));
+      }
+      body.innerHTML = parts.join('');
       const picker = document.getElementById('monthPicker');
       picker.min = `${RANGE_START}-01`; picker.max = `${RANGE_END}-12`;
-      picker.value = `${y}-${String(m + 1).padStart(2, '0')}`;
-      // 표 높이를 내용에 맞게 (월이 바뀌어도 1행부터 보이게)
-      const wrap = document.querySelector('.table-wrap');
-      wrap.scrollTop = 0;
+      picker.value = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
     } catch (err) {
       console.error('render() 실패:', err);
       document.getElementById('bodyRows').innerHTML =
         `<tr><td colspan="8" style="color:#dc2626;padding:16px">렌더링 오류: ${escapeHtml(String(err && err.message || err))}</td></tr>`;
     }
+    if (mode === 'top') wrapEl.scrollTop = 0;
+    else if (mode === 'today') { if (!scrollToToday()) wrapEl.scrollTop = 0; }
+    else wrapEl.scrollTop = prevTop;
   }
   function shiftMonth(delta) {
-    const y = currentMonth.getFullYear(), m = currentMonth.getMonth();
-    currentMonth = clampMonth(y, m + delta);
-    render();
+    currentMonth = clampMonth(currentMonth.getFullYear(), currentMonth.getMonth() + delta);
+    render({ scroll: 'top' });
   }
   function formatModified(value) {
     if (!value) return '—';
@@ -562,33 +612,22 @@
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
+  // 오늘: 이번 달 기준으로 익월까지 이어 보이고, 오늘 날짜 행이 맨 위에 오도록 스크롤
   document.getElementById('todayBtn').onclick = () => {
     const now = new Date();
-    const needRender = currentMonth.getFullYear() !== now.getFullYear() || currentMonth.getMonth() !== now.getMonth();
     currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    render();
-    // 오늘 행을 표 상단(헤더 바로 아래)으로 스크롤
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      const todayStr = fmtDate(now.getFullYear(), now.getMonth(), now.getDate());
-      const row = document.querySelector(`#bodyRows tr[data-date="${todayStr}"]`);
-      if (!row) return;
-      const wrap = document.querySelector('.table-wrap');
-      const head = wrap.querySelector('thead');
-      wrap.scrollTop = row.getBoundingClientRect().top - wrap.getBoundingClientRect().top + wrap.scrollTop - head.offsetHeight;
-      row.querySelectorAll('td.date-cell').forEach(td => td.classList.remove('today'));
-      // today 클래스 재적용 (렌더 시 이미 있음, 깜빡임 강조용)
-    }));
+    render({ scroll: 'today' });
   };
   document.getElementById('prevMonthBtn').onclick = () => shiftMonth(-1);
   document.getElementById('nextMonthBtn').onclick = () => shiftMonth(1);
   document.getElementById('monthPicker').onchange = e => {
     if (!e.target.value) return;
-    let [y, m] = e.target.value.split('-').map(Number);
+    const [y, m] = e.target.value.split('-').map(Number);
     currentMonth = clampMonth(y, m - 1);
-    render();
+    render({ scroll: 'top' });
   };
 
-  // 셀 편집/메모는 표 전체에 이벤트 위임으로 처리(필요한 월만 DOM에 있으므로 가볍다)
+  // 셀 편집/메모는 이벤트 위임으로 처리
   (() => {
     const body = document.getElementById('bodyRows');
     let memoAnchor = null;
@@ -600,6 +639,8 @@
     });
     body.addEventListener('focusout', e => {
       if (e.target.closest('.modified-cell')) hideMemo();
+      // 입력이 끝나면 보류해 둔 다른 사람의 변경사항을 반영 (스크롤 위치는 유지됨)
+      if (e.target.closest('textarea.entry')) setTimeout(flushPendingRemote, 80);
     });
     body.addEventListener('mouseover', e => {
       const c = e.target.closest('.modified-cell');
@@ -631,6 +672,7 @@
       data.modifiedBy[date] = currentUser;
       data.cellModified[k] = nowIso;
       data.cellModifiedBy[k] = currentUser;
+      dataCanon = null;
       area.title = `메모 · 수정 계정: ${currentUser} · 수정 날짜: ${formatModified(nowIso)}`;
       area.parentElement.classList.toggle('note-cell', !!area.value);
       document.getElementById('saveStatus').textContent = '저장 대기 중…';
@@ -638,7 +680,7 @@
       const modifiedCell = area.closest('tr').querySelector('.modified-cell');
       if (modifiedCell) {
         modifiedCell.classList.add('has-memo');
-        modifiedCell.innerHTML = `${escapeHtml(formatModified(nowIso))}<br><strong>${escapeHtml(currentUser)}</strong>`;
+        modifiedCell.innerHTML = modifiedInnerHtml(nowIso, currentUser);
       }
     });
     // 기록은 입력이 끝나 값이 확정되는 change 이벤트에서 남깁니다.
@@ -701,16 +743,21 @@
     saveAccounts();
     e.target.reset();
     renderAccountsTable();
+    // 새로 추가한 계정이 보이도록 목록 맨 아래로 이동
+    const wrap = document.getElementById('accountsTableWrap');
+    wrap.scrollTop = wrap.scrollHeight;
     alert('계정을 등록했습니다.');
   };
 
   function renderAccountsTable() {
     const wrap = document.getElementById('accountsTableWrap');
     if (!isAdmin) { wrap.textContent = '관리자만 볼 수 있습니다.'; return; }
+    const keepTop = wrap.scrollTop;
     wrap.innerHTML = '<table class="account-list"><thead><tr><th>아이디</th><th>권한</th><th>관리</th></tr></thead><tbody>' +
       accounts.map((a, i) => `<tr><td>${escapeHtml(a.username)}</td><td>${a.role === 'admin' ? '관리자' : '일반 사용자'}</td><td>` +
       (a.username === currentUser ? '현재 로그인' : `<button type="button" data-delete-account="${i}">삭제</button>`) +
       '</td></tr>').join('') + '</tbody></table>';
+    wrap.scrollTop = keepTop;
     wrap.querySelectorAll('[data-delete-account]').forEach(btn => {
       btn.onclick = () => {
         if (!isAdmin) return;
@@ -734,19 +781,22 @@
   modal.addEventListener('click', e => { if (e.target === modal) modal.style.display='none'; });
   document.getElementById('savePeople').onclick = () => {
     const people = [...new Set(document.getElementById('peopleInput').value.split(',').map(s=>s.trim()).filter(Boolean))];
-    if (!people.length) { alert('친구 이름을 한 명 이상 입력해 주세요.'); return; }
-    // Keep events for retained people; remove events belonging to deleted columns.
+    if (!people.length) { alert('항목 이름을 한 개 이상 입력해 주세요.'); return; }
     const keep = new Set(people);
     Object.keys(data.events).forEach(k => {
       const person = k.slice(k.indexOf('|')+1);
       if (!keep.has(person)) delete data.events[k];
     });
     data.people = people;
+    dataCanon = null;
     persist(); render(); modal.style.display='none';
   };
 
   updateAdminUI();
-  render();
+  // 처음 열 때: 이번 달~익월을 보여주고 오늘 날짜로 스크롤
+  render({ scroll: 'today' });
+  requestAnimationFrame(() => requestAnimationFrame(() => scrollToToday()));
+  window.addEventListener('load', () => { if (!isEditing() && wrapEl.scrollTop === 0) scrollToToday(); });
 })();
 </script>
 </body>
