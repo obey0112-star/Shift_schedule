@@ -74,6 +74,30 @@
   .account-list { width:100%; border-collapse:collapse; min-width:0; table-layout:auto; }
   .account-list th,.account-list td { padding:8px; border:1px solid var(--line); text-align:left; font-size:13px; }
   .account-list th { background:var(--head); position:sticky; top:0; z-index:1; }
+  /* 모바일 전용 날짜별 카드: PC 표는 그대로 유지 */
+  .mobile-cards { display:none; }
+  .day-card { background:#fff; border:1px solid var(--line); border-radius:12px; margin:0 0 12px; overflow:hidden; box-shadow:0 2px 8px #0f172a0a; }
+  .day-card.today { border:2px solid #60a5fa; }
+  .day-card-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 14px; background:#f1f5f9; }
+  .day-card-date { font-size:16px; font-weight:800; }
+  .day-card-date.sun, .day-card-date.holiday { color:#dc2626; }
+  .day-card-date.sat { color:#2563eb; }
+  .day-card-sub { font-size:11px; color:#64748b; margin-top:3px; }
+  .day-card-body { padding:8px 12px 12px; }
+  .mobile-person-row { display:grid; grid-template-columns:minmax(76px, 30%) minmax(0,1fr); align-items:start; gap:8px; padding:6px 0; border-bottom:1px solid #eef2f7; }
+  .mobile-person-label { font-size:12px; font-weight:700; color:#475569; padding-top:9px; overflow-wrap:anywhere; }
+  .mobile-entry { width:100%; min-height:42px; resize:vertical; border:1px solid #dbe2ea; border-radius:7px; padding:9px; font-size:16px; line-height:1.4; color:var(--text); background:#fff; }
+  .mobile-entry:disabled { background:#f1f5f9; color:#64748b; }
+  .mobile-remark-row { margin-top:4px; padding-top:9px; border-top:1px dashed #cbd5e1; }
+  .mobile-modified { font-size:11px; color:#64748b; margin-top:9px; line-height:1.45; }
+  @media(max-width:700px) {
+    .app{padding:10px} h1{font-size:19px} header{gap:10px; margin-bottom:12px}
+    .controls{gap:6px} .controls button{padding:9px 10px}
+    .table-wrap{display:none}
+    .mobile-cards{display:block}
+    .bottom{margin-top:8px; align-items:flex-start}
+    .legend{gap:8px}
+  }
   .modal-backdrop { position:fixed; inset:0; background:#0f172a66; display:none; align-items:center; justify-content:center; padding:16px; z-index:10; }
   /* 모달이 화면보다 길어지면 모달 안에서 스크롤 */
   .modal { width:min(460px,100%); max-height:calc(100vh - 32px); max-height:calc(100dvh - 32px); overflow-y:auto; background:white; border-radius:12px; padding:20px; box-shadow:0 20px 50px #0003; }
@@ -110,6 +134,7 @@
       <tbody id="bodyRows"></tbody>
     </table>
   </div>
+  <div id="mobileCards" class="mobile-cards" aria-label="날짜별 근무표 카드"></div>
   <div class="bottom">
     <div class="legend">
       <span><i class="dot" style="background:#dc2626"></i>일요일</span>
@@ -607,9 +632,48 @@
     return rows;
   }
 
+  function buildMobileDayCards(y, m, ctx) {
+    const cards = [];
+    const days = new Date(y, m + 1, 0).getDate();
+    for (let d = 1; d <= days; d++) {
+      const date = fmtDate(y, m, d);
+      const dow = new Date(y, m, d).getDay();
+      const isToday = (y === ctx.ty && m === ctx.tm && d === ctx.td);
+      const locked = !currentUser || (date < ctx.cutoffStr && !isAdmin);
+      const lockTitle = !currentUser ? '수정하려면 먼저 로그인하세요.' : '7일이 지난 일정은 관리자만 수정할 수 있습니다.';
+      const shift = shiftOf(y, m, d);
+      const shiftTag = shift.label === '휴무'
+        ? '<span class="shift-tag shift-off">휴무</span>'
+        : `<span class="shift-tag shift-${shift.label[0].toLowerCase()}">${shift.label}</span>`;
+      const holiday = HOLIDAYS[date] ? `<div class="day-card-sub">${escapeHtml(HOLIDAYS[date])}</div>` : '';
+      const dateClass = dow === 0 || HOLIDAYS[date] ? 'sun' : dow === 6 ? 'sat' : '';
+      const people = data.people.map((person, pi) => {
+        const k = keyFor(date, person);
+        const val = data.events[k] || '';
+        const stamp = data.cellModified && data.cellModified[k];
+        const who = data.cellModifiedBy && data.cellModifiedBy[k];
+        let title = stamp ? `메모 · 수정 계정: ${who || '알 수 없음'} · 수정 날짜: ${formatModified(stamp)}` : '';
+        if (locked) title = title ? `${title}\n${lockTitle}` : lockTitle;
+        const isRemark = /^remark/i.test(person);
+        return `<div class="mobile-person-row${isRemark ? ' mobile-remark-row' : ''}"><label class="mobile-person-label" for="mobile-${date}-${pi}">${escapeHtml(person)}</label><textarea id="mobile-${date}-${pi}" class="entry mobile-entry${locked ? ' locked-entry' : ''}" data-date="${date}" data-pi="${pi}" data-init="${escapeHtml(val)}"${locked ? ' disabled' : ''}${title ? ` title="${escapeHtml(title)}"` : ''} aria-label="${date} ${escapeHtml(person)} 일정">${escapeHtml(val)}</textarea></div>`;
+      }).join('');
+      const mDate = data.modified && data.modified[date];
+      const mUser = data.modifiedBy && data.modifiedBy[date];
+      const modified = mDate ? `${escapeHtml(formatModifiedShort(mDate))} · ${escapeHtml(mUser || '이전 기록')}` : '수정 기록 없음';
+      cards.push(`<article class="day-card${isToday ? ' today' : ''}" data-date="${date}"${isToday ? ' id="mobileTodayCard"' : ''}><div class="day-card-head"><div><div class="day-card-date ${dateClass}">${m+1}월 ${d}일 (${WEEKDAYS[dow]})</div>${holiday}</div>${shiftTag}</div><div class="day-card-body">${people}<div class="mobile-modified">마지막 수정: <span class="mobile-modified-value">${modified}</span></div></div></article>`);
+    }
+    return cards;
+  }
+
   // 지정한 날짜 행을 헤더 바로 아래로 스크롤
   // rowsAbove: 해당 날짜 위로 몇 줄을 더 보이게 할지 (딱 붙지 않도록 여백)
   function scrollToDate(dateStr, rowsAbove) {
+    if (window.matchMedia('(max-width: 700px)').matches) {
+      const card = document.querySelector(`#mobileCards .day-card[data-date="${dateStr}"]`);
+      if (!card) return false;
+      card.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      return true;
+    }
     let row = document.querySelector(`#bodyRows tr[data-date="${dateStr}"]`);
     if (!row) return false;
     for (let i = 0; i < (rowsAbove || 0); i++) {
@@ -654,6 +718,12 @@
         buildMonthDayRows(y, m, ctx).forEach(r => parts.push(r));
       }
       body.innerHTML = parts.join('');
+      const mobileParts = [];
+      for (let idx = baseIdx; idx <= Math.min(baseIdx + 1, maxIdx); idx++) {
+        const y = Math.floor(idx / 12), m = idx % 12;
+        mobileParts.push(...buildMobileDayCards(y, m, ctx));
+      }
+      document.getElementById('mobileCards').innerHTML = mobileParts.join('');
       const picker = document.getElementById('monthPicker');
       picker.min = `${RANGE_START}-01`; picker.max = `${RANGE_END}-12`;
       picker.value = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
@@ -701,13 +771,13 @@
   (() => {
     const body = document.getElementById('bodyRows');
     let memoAnchor = null;
-    body.addEventListener('focusin', e => {
+    document.addEventListener('focusin', e => {
       const area = e.target.closest('textarea.entry');
       if (area) { area.dataset.init = area.value; return; }
       const c = e.target.closest('.modified-cell');
       if (c) showMemo(c, c.dataset.date);
     });
-    body.addEventListener('focusout', e => {
+    document.addEventListener('focusout', e => {
       if (e.target.closest('.modified-cell')) hideMemo();
       // 입력이 끝나면 보류해 둔 다른 사람의 변경사항을 반영 (스크롤 위치는 유지됨)
       if (e.target.closest('textarea.entry')) setTimeout(flushPendingRemote, 80);
@@ -720,7 +790,7 @@
       const c = e.target.closest('.modified-cell');
       if (c && !c.contains(e.relatedTarget)) { memoAnchor = null; hideMemo(); }
     });
-    body.addEventListener('input', e => {
+    document.addEventListener('input', e => {
       const area = e.target.closest('textarea.entry');
       if (!area) return;
       const date = area.dataset.date;
@@ -733,6 +803,10 @@
       }
       if (area.value.trim()) data.events[k] = area.value;
       else delete data.events[k];
+      // PC 표와 모바일 카드의 같은 입력칸을 즉시 동기화
+      document.querySelectorAll(`textarea.entry[data-date="${date}"][data-pi="${area.dataset.pi}"]`).forEach(other => {
+        if (other !== area) other.value = area.value;
+      });
       if (!data.modified) data.modified = {};
       if (!data.modifiedBy) data.modifiedBy = {};
       if (!data.cellModified) data.cellModified = {};
@@ -751,14 +825,18 @@
       area.parentElement.classList.toggle('note-cell', !!area.value);
       document.getElementById('saveStatus').textContent = '저장 대기 중…';
       persistSoon(400);
-      const modifiedCell = area.closest('tr').querySelector('.modified-cell');
+      const row = area.closest('tr');
+      const modifiedCell = row && row.querySelector('.modified-cell');
       if (modifiedCell) {
         modifiedCell.classList.add('has-memo');
         modifiedCell.innerHTML = modifiedInnerHtml(nowIso, currentUser);
       }
+      const card = area.closest('.day-card');
+      const mobileModified = card && card.querySelector('.mobile-modified-value');
+      if (mobileModified) mobileModified.textContent = `${formatModifiedShort(nowIso)} · ${currentUser}`;
     });
     // 기록은 입력이 끝나 값이 확정되는 change 이벤트에서 남깁니다.
-    body.addEventListener('change', e => {
+    document.addEventListener('change', e => {
       const area = e.target.closest('textarea.entry');
       if (!area) return;
       const person = data.people[Number(area.dataset.pi)];
