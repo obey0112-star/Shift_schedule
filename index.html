@@ -234,6 +234,7 @@
   let applyingRemote = false;
   let pendingRemote = false; // 입력 중이라 보류된 원격 변경이 있는지
   let db = null;
+  let accountsSyncReady = false;
   let dataCanon = null; // 현재 data의 비교용 직렬화 캐시 (data가 바뀌면 null로 무효화)
   let dirty = {};       // 아직 서버에 보내지 않은 변경분 { 경로: 값(null이면 삭제) }
 
@@ -272,6 +273,13 @@
   }
   function saveAccounts() {
     localStorage.setItem('friendScheduleAccounts', JSON.stringify(accounts));
+    // 계정 목록도 Firebase에 저장해 다른 기기와 공유
+    if (SYNC_ENABLED && db && accountsSyncReady) {
+      db.ref('schedule/accounts').set(accounts).catch(err => {
+        console.error('계정 목록 서버 저장 실패:', err);
+        alert('계정 목록을 서버에 저장하지 못했습니다. Firebase 데이터베이스 규칙을 확인해 주세요.');
+      });
+    }
   }
   function getCurrentAccount() {
     return accounts.find(a => a.username === currentUser) || null;
@@ -518,6 +526,30 @@
       }
 
       db.ref(DB_PATH).on('value', snapshot => applyRemote(snapshot.val()));
+
+      // 계정 목록은 기기별 localStorage 대신 Firebase에 공유 저장
+      const accountsSnap = await db.ref('schedule/accounts').get();
+      if (accountsSnap.exists() && Array.isArray(accountsSnap.val())) {
+        accounts = accountsSnap.val();
+        localStorage.setItem('friendScheduleAccounts', JSON.stringify(accounts));
+      } else {
+        // 기존 PC에만 있던 계정 목록을 최초 1회 서버로 옮김
+        await db.ref('schedule/accounts').set(accounts);
+      }
+      accountsSyncReady = true;
+      db.ref('schedule/accounts').on('value', snapshot => {
+        const remoteAccounts = snapshot.val();
+        if (!Array.isArray(remoteAccounts) || !remoteAccounts.length) return;
+        accounts = remoteAccounts;
+        localStorage.setItem('friendScheduleAccounts', JSON.stringify(accounts));
+        if (currentUser && !accounts.some(a => a.username === currentUser)) {
+          currentUser = '';
+          sessionStorage.removeItem('friendScheduleUser');
+        }
+        updateAdminUI();
+        render();
+      });
+
       document.getElementById('saveStatus').textContent = '실시간 공유 연결됨';
       if (Object.keys(dirty).length) pushToServer(); // 연결 전에 쌓인 변경분 전송
     } catch (err) {
