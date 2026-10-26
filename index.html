@@ -76,7 +76,6 @@
   .account-list th { background:var(--head); position:sticky; top:0; z-index:1; }
   /* 모바일 전용 날짜별 카드: PC 표는 그대로 유지 */
   .mobile-cards { display:none; }
-  /* 모바일 화면 오른쪽 아래에 항상 보이는 오늘 버튼 */
   .floating-today-btn { display:none; }
   .day-card { background:#fff; border:1px solid var(--line); border-radius:12px; margin:0 0 12px; overflow:hidden; box-shadow:0 2px 8px #0f172a0a; }
   .day-card.today { border:2px solid #60a5fa; }
@@ -101,10 +100,11 @@
     .legend{gap:8px}
     .floating-today-btn {
       display:flex; align-items:center; justify-content:center; gap:6px;
-      position:fixed; right:18px; bottom:calc(18px + env(safe-area-inset-bottom));
-      z-index:20; min-height:48px; padding:0 17px; border:0; border-radius:999px;
+      position:fixed; right:18px; bottom:calc(18px + env(safe-area-inset-bottom, 0px));
+      z-index:9999; min-height:48px; padding:0 17px; border:0; border-radius:999px;
       background:#2563eb; color:#fff; font-size:15px; font-weight:800;
       box-shadow:0 4px 14px #0f172a40; cursor:pointer;
+      -webkit-appearance:none; appearance:none; touch-action:manipulation;
     }
     .floating-today-btn:active { transform:scale(.97); }
     body { padding-bottom:76px; }
@@ -215,6 +215,7 @@
   </div>
 </div>
 
+<button type="button" id="floatingTodayBtn" class="floating-today-btn" aria-label="오늘 날짜로 이동">◎ 오늘</button>
 <script>
 (() => {
   const STORAGE_KEY = 'friendScheduleV1';
@@ -769,7 +770,8 @@
     currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     render({ scroll: 'today' });
   };
-  document.getElementById('floatingTodayBtn').onclick = () => document.getElementById('todayBtn').click();
+  const floatingTodayBtn = document.getElementById('floatingTodayBtn');
+  if (floatingTodayBtn) floatingTodayBtn.onclick = () => document.getElementById('todayBtn').click();
   document.getElementById('prevMonthBtn').onclick = () => shiftMonth(-1);
   document.getElementById('nextMonthBtn').onclick = () => shiftMonth(1);
   document.getElementById('monthPicker').onchange = e => {
