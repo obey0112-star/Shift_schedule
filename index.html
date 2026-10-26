@@ -179,6 +179,7 @@
   let pendingRemote = false; // 입력 중이라 보류된 원격 변경이 있는지
   let db = null;
   let dataCanon = null; // 현재 data의 비교용 직렬화 캐시 (data가 바뀌면 null로 무효화)
+  let dirty = {};       // 아직 서버에 보내지 않은 변경분 { 경로: 값(null이면 삭제) }
 
   if (!localStorage.getItem('friendScheduleResetV4')) {
     localStorage.removeItem(STORAGE_KEY);
@@ -246,7 +247,8 @@
     dataCanon = null;
     if (!Array.isArray(data.history)) data.history = [];
     const now = new Date();
-    data.history.push({
+    const entry = {
+      id: newId(),
       date,
       category: person,
       user: currentUser || (isAdmin ? '관리자' : '사용자'),
@@ -254,13 +256,19 @@
       timestamp: now.toISOString(),
       before: before ? String(before).replace(/\s+/g, ' ').slice(0, 40) : '',
       summary: value ? String(value).replace(/\s+/g, ' ').slice(0, 70) : '일정 삭제'
-    });
+    };
+    data.history.push(entry);
+    data.history.sort(cmpHist);
+    mark('history/' + entry.id, entry); // 기록은 항목별 id로 저장 → 동시에 남겨도 서로 덮이지 않음
+    // 같은 날짜 10건 초과분, 전체 2000건 초과분은 오래된 것부터 삭제
+    const drop = new Set();
     const sameDate = data.history.filter(h => h.date === date);
-    if (sameDate.length > 10) {
-      const drop = new Set(sameDate.slice(0, sameDate.length - 10));
+    if (sameDate.length > 10) sameDate.slice(0, sameDate.length - 10).forEach(h => drop.add(h));
+    if (data.history.length > 2000) data.history.slice(0, data.history.length - 2000).forEach(h => drop.add(h));
+    if (drop.size) {
       data.history = data.history.filter(h => !drop.has(h));
+      drop.forEach(h => { if (h.id) mark('history/' + h.id, null); });
     }
-    data.history = data.history.slice(-2000);
   }
 
   const memoPop = document.getElementById('memoPop');
@@ -326,10 +334,16 @@
     for (const k of ['events', 'modified', 'modifiedBy', 'cellModified', 'cellModifiedBy']) {
       if (!d[k] || typeof d[k] !== 'object' || Array.isArray(d[k])) d[k] = {};
     }
-    if (!Array.isArray(d.history)) {
-      d.history = (d.history && typeof d.history === 'object')
-        ? Object.keys(d.history).sort((a, b) => Number(a) - Number(b)).map(k => d.history[k]).filter(Boolean)
-        : [];
+    {
+      // 기록: 배열/객체 어느 형태로 와도 id를 붙인 배열로 맞추고 시간순 정렬
+      const raw = d.history;
+      let list = [];
+      if (Array.isArray(raw)) list = raw.map((h, i) => [String(i), h]);
+      else if (raw && typeof raw === 'object') list = Object.keys(raw).map(k => [k, raw[k]]);
+      d.history = list
+        .filter(e => e[1] && typeof e[1] === 'object')
+        .map(e => { if (!e[1].id) e[1].id = e[0]; return e[1]; });
+      d.history.sort(cmpHist);
     }
     return d;
   }
@@ -342,6 +356,39 @@
   function getDataCanon() {
     if (dataCanon === null) dataCanon = canon(normalizeData(data));
     return dataCanon;
+  }
+
+  // ===== 바뀐 부분만 저장 (여러 명이 동시에 수정해도 서로 덮어쓰지 않음) =====
+  function mark(path, value) {
+    dirty[path] = (value === undefined ? null : value);
+    dataCanon = null;
+  }
+  function cmpHist(a, b) {
+    const ta = a.timestamp || '', tb = b.timestamp || '';
+    if (ta !== tb) return ta < tb ? -1 : 1;
+    const ia = String(a.id || ''), ib = String(b.id || '');
+    return ia < ib ? -1 : ia > ib ? 1 : 0;
+  }
+  function newId() {
+    return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+  }
+  // 서버에서 받은 데이터 위에, 아직 저장 전인 내 변경분을 다시 얹는다
+  function applyOps(d, ops) {
+    for (const path in ops) {
+      const value = ops[path];
+      const parts = path.split('/');
+      const top = parts[0];
+      if (top === 'people') { if (Array.isArray(value)) d.people = value.slice(); continue; }
+      const key = parts.slice(1).join('/');
+      if (top === 'history') {
+        d.history = d.history.filter(h => h.id !== key);
+        if (value) d.history.push(value);
+      } else if (d[top] && typeof d[top] === 'object') {
+        if (value === null) delete d[top][key]; else d[top][key] = value;
+      }
+    }
+    d.history.sort(cmpHist);
+    return d;
   }
   function isEditing() {
     const ae = document.activeElement;
@@ -360,16 +407,17 @@
     try { localStorage.setItem(STORAGE_KEY, json); } catch (e) {}
     document.getElementById('saveStatus').textContent =
       '저장됨 · ' + new Date().toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
-    if (SYNC_ENABLED) pushToServer(json);
+    if (SYNC_ENABLED) pushToServer();
   }
 
   // 서버에서 온 값을 화면에 반영 (내용이 같으면 아무것도 하지 않음 → 스크롤/입력 유지)
   function applyRemote(val) {
     if (!val) return;
     const remote = normalizeData(val); // snapshot.val()은 매번 새 객체라 복제 불필요
+    applyOps(remote, dirty);           // 아직 저장 전인 내 수정은 유지
     const remoteCanon = canon(remote);
     if (remoteCanon === getDataCanon()) return; // 내 저장이 돌아온 경우 등
-    if (persistTimer) return;                                    // 내 수정이 아직 저장 전이면 덮어쓰지 않음
+    // (저장 전 변경분은 위에서 서버 값 위에 다시 얹었으므로 덮어쓸 걱정 없음)                                    // 내 수정이 아직 저장 전이면 덮어쓰지 않음
     if (isEditing()) { pendingRemote = true; return; }           // 입력 중이면 나중에
     applyingRemote = true;
     data = remote;
@@ -380,7 +428,7 @@
     document.getElementById('saveStatus').textContent = '공유 동기화됨 · ' + new Date().toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
   }
   async function flushPendingRemote() {
-    if (!pendingRemote || !db || isEditing() || persistTimer) return;
+    if (!pendingRemote || !db || isEditing()) return;
     pendingRemote = false;
     try {
       const snap = await db.ref(DB_PATH).get();
@@ -407,25 +455,31 @@
 
       const snap = await db.ref(DB_PATH).get();
       if (!snap.exists()) {
-        await db.ref(DB_PATH).set(JSON.parse(JSON.stringify(data)));
+        await db.ref(DB_PATH).set(JSON.parse(JSON.stringify(data))); // 서버가 비어 있을 때만 전체 업로드
+        dirty = {};
       } else {
         applyRemote(snap.val());
       }
 
       db.ref(DB_PATH).on('value', snapshot => applyRemote(snapshot.val()));
       document.getElementById('saveStatus').textContent = '실시간 공유 연결됨';
+      if (Object.keys(dirty).length) pushToServer(); // 연결 전에 쌓인 변경분 전송
     } catch (err) {
       console.error('Firebase 초기화 실패:', err);
       document.getElementById('saveStatus').textContent = '공유 연결 실패 (로컬 저장만 사용)';
     }
   }
-  async function pushToServer(json) {
+  async function pushToServer() {
     if (!SYNC_ENABLED || !db || applyingRemote) return;
+    const ops = dirty;
+    if (!Object.keys(ops).length) return;
+    dirty = {};
     document.getElementById('saveStatus').textContent = '서버 저장 중…';
     try {
-      await db.ref(DB_PATH).set(JSON.parse(json || JSON.stringify(data)));
+      await db.ref(DB_PATH).update(ops); // 바뀐 경로만 저장
       document.getElementById('saveStatus').textContent = '공유됨 · ' + new Date().toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
     } catch (err) {
+      for (const p in ops) if (!(p in dirty)) dirty[p] = ops[p]; // 실패한 변경분은 다음 저장 때 다시 시도
       document.getElementById('saveStatus').textContent = '서버 저장 실패 (오프라인 저장됨)';
     }
   }
@@ -669,7 +723,11 @@
       data.modifiedBy[date] = currentUser;
       data.cellModified[k] = nowIso;
       data.cellModifiedBy[k] = currentUser;
-      dataCanon = null;
+      mark('events/' + k, area.value.trim() ? area.value : null);
+      mark('modified/' + date, nowIso);
+      mark('modifiedBy/' + date, currentUser);
+      mark('cellModified/' + k, nowIso);
+      mark('cellModifiedBy/' + k, currentUser);
       area.title = `메모 · 수정 계정: ${currentUser} · 수정 날짜: ${formatModified(nowIso)}`;
       area.parentElement.classList.toggle('note-cell', !!area.value);
       document.getElementById('saveStatus').textContent = '저장 대기 중…';
@@ -779,15 +837,20 @@
   document.getElementById('savePeople').onclick = () => {
     const people = [...new Set(document.getElementById('peopleInput').value.split(',').map(s=>s.trim()).filter(Boolean))];
     if (!people.length) { alert('항목 이름을 한 개 이상 입력해 주세요.'); return; }
+    const badName = people.find(p => /[.$#\[\]\/]/.test(p));
+    if (badName) { alert(`항목 이름에 쓸 수 없는 문자가 있습니다: ${badName}\n(. $ # [ ] / 는 사용할 수 없어요)`); return; }
     const keep = new Set(people);
     Object.keys(data.events).forEach(k => {
       const person = k.slice(k.indexOf('|')+1);
-      if (!keep.has(person)) delete data.events[k];
+      if (!keep.has(person)) { delete data.events[k]; mark('events/' + k, null); }
     });
     data.people = people;
-    dataCanon = null;
+    mark('people', people);
     persist(); render(); modal.style.display='none';
   };
+
+  // 창을 닫기 직전에 저장 대기 중인 변경이 있으면 바로 저장
+  window.addEventListener('pagehide', () => { if (persistTimer) persist(); });
 
   updateAdminUI();
   // 처음 열 때: 이번 달~익월을 보여주고 오늘 날짜로 스크롤
