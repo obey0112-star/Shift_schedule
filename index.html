@@ -19,7 +19,7 @@
   button:hover { filter:brightness(.97); }
   input[type="month"], input[type="text"], input[type="date"], select { border:1px solid #cbd5e1; border-radius:7px; padding:9px; background:white; }
   .notice { background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; border-radius:8px; padding:10px 12px; font-size:13px; margin-bottom:14px; }
-  .table-wrap { max-height:calc(100vh - 260px); min-height:360px; overflow:auto; border:1px solid var(--line); border-radius:10px; background:white; box-shadow:0 3px 12px #0f172a0a; }
+  .table-wrap { height:calc(100vh - 150px); min-height:420px; overflow:auto; border:1px solid var(--line); border-radius:10px; background:white; box-shadow:0 3px 12px #0f172a0a; }
   table { border-collapse:separate; border-spacing:0; width:100%; min-width:900px; table-layout:fixed; }
   th, td { border-right:1px solid var(--line); border-bottom:1px solid var(--line); }
   th:last-child, td:last-child { border-right:0; }
@@ -31,12 +31,20 @@
   tbody td { height:76px; padding:6px; vertical-align:top; }
   tbody tr.month-row td { height:auto; padding:8px 12px; background:#e8eefc; color:#1e3a8a; font-weight:700; font-size:14px; border-right:0; }
   tbody tr.month-row td span { position:sticky; left:12px; display:inline-block; }
-  td.date-cell { background:#f8fafc; padding:9px; font-size:13px; position:sticky; left:0; z-index:1; }
+  td.date-cell { background:#f8fafc; padding:9px; font-size:13px; }
   .date-num { font-weight:700; font-size:15px; }
   .weekday { color:#64748b; margin-left:4px; }
   .weekend-sun .date-num, .weekend-sun .weekday { color:#dc2626; }
   .weekend-sat .date-num, .weekend-sat .weekday { color:#2563eb; }
   .today { box-shadow:inset 0 0 0 2px #60a5fa; }
+  td.date-cell.holiday { background:#fef2f2; }
+  td.date-cell.holiday .date-num, td.date-cell.holiday .weekday { color:#dc2626; }
+  .holiday-name { display:block; font-size:10px; color:#dc2626; font-weight:700; margin-top:2px; white-space:nowrap; }
+  .shift-tag { display:inline-block; margin-left:6px; padding:1px 6px; border-radius:9px; font-size:11px; font-weight:700; vertical-align:middle; }
+  .shift-a { background:#dbeafe; color:#1d4ed8; }
+  .shift-b { background:#fef9c3; color:#a16207; }
+  .shift-c { background:#ede9fe; color:#6d28d9; }
+  .shift-off { background:#f1f5f9; color:#64748b; }
   td.person-cell { padding:5px; }
   .entry { width:100%; height:100%; min-height:62px; resize:vertical; border:1px solid transparent; border-radius:5px; padding:7px; font-size:13px; line-height:1.4; background:transparent; color:var(--text); }
   .entry:focus { outline:2px solid #93c5fd; border-color:#93c5fd; background:#fff; }
@@ -48,17 +56,7 @@
   .locked-entry { background:#f1f5f9 !important; color:#64748b; cursor:not-allowed; }
   .admin-badge { font-size:12px; padding:7px 10px; border-radius:7px; background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; }
   .admin-badge.viewer { background:#fff7ed; color:#9a3412; border-color:#fed7aa; }
-  .history-panel { margin-top:16px; border:1px solid var(--line); border-radius:10px; background:white; padding:14px; }
-  .history-panel h2 { margin:0 0 10px; font-size:16px; }
-  .history-table-wrap { overflow:auto; border:1px solid #cbd5e1; }
-  .history-table { width:100%; min-width:760px; border-collapse:collapse; table-layout:auto; }
-  .history-table th,.history-table td { border:1px solid #cbd5e1; padding:8px 10px; font-size:12px; text-align:left; vertical-align:top; }
-  .history-table th { background:#eaf1f8; font-weight:700; white-space:nowrap; }
-  .history-table tbody tr:nth-child(even) { background:#f8fafc; }
-  .history-table td.memo-cell { white-space:pre-wrap; overflow-wrap:anywhere; }
-  .note-cell { position:relative; }
-  .note-cell::after { content:''; position:absolute; right:0; top:0; width:0; height:0; border-top:9px solid #f59e0b; border-left:9px solid transparent; pointer-events:none; }
-  td.modified-cell { white-space:pre-line; font-size:11px; line-height:1.45; position:sticky; left:auto; right:0; cursor:default; }
+  td.modified-cell { white-space:pre-line; font-size:11px; line-height:1.45; cursor:default; }
   td.modified-cell.has-memo { cursor:help; }
   td.modified-cell.has-memo::after { content:''; position:absolute; right:0; top:0; width:0; height:0; border-top:9px solid #dc2626; border-left:9px solid transparent; pointer-events:none; }
   td.modified-cell:focus { outline:2px solid #93c5fd; outline-offset:-2px; }
@@ -68,6 +66,8 @@
   #memoPop .memo-item:last-child { margin-bottom:0; }
   #memoPop .memo-meta { font-weight:700; }
   #memoPop .memo-body { padding-left:8px; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .note-cell { position:relative; }
+  .note-cell::after { content:''; position:absolute; right:0; top:0; width:0; height:0; border-top:9px solid #f59e0b; border-left:9px solid transparent; pointer-events:none; }
   .small-note { color:#64748b; font-size:12px; margin-top:8px; }
   .account-list { width:100%; border-collapse:collapse; min-width:0; }
   .account-list th,.account-list td { padding:8px; border:1px solid var(--line); text-align:left; font-size:13px; }
@@ -97,11 +97,6 @@
       <button id="managePeople">항목 관리</button>
     </div>
   </header>
-
-  <div class="notice">
-    <strong>간단 사용법:</strong> 일정 칸을 수정하면 마지막 수정 날짜와 계정명이 표시됩니다. 수정된 칸 오른쪽 위의 주황색 표시를 통해 엑셀 메모처럼 마우스를 올려 수정 계정과 날짜를 확인할 수 있습니다. <strong>마지막 수정일</strong> 칸의 빨간 표시에 마우스를 올리면 해당 날짜의 최근 수정 10건이 엑셀 메모처럼 표시됩니다.
-    로그인한 사용자만 일정을 수정할 수 있으며, 오늘 기준 7일보다 오래된 날짜는 관리자만 수정할 수 있습니다. 계정 등록·삭제는 관리자 전용입니다. 단, 계정 정보는 이 브라우저에 저장되는 데모 방식이므로 실제 온라인 공유 환경에서는 서버 인증이 필요합니다. 현재 버전은 실시간 온라인 동기화가 되지 않습니다.
-  </div>
 
   <div class="table-wrap">
     <table id="schedule">
@@ -162,7 +157,21 @@
 <script>
 (() => {
   const STORAGE_KEY = 'friendScheduleV1';
-  // 이 버전을 처음 여는 브라우저에서 한 번만: 저장된 일정·수정 기록·항목·계정을 모두 지우고 새것처럼 시작합니다.
+  // ===== Firebase 실시간 동기화 설정: 아래 firebaseConfig만 교체하면 작동 =====
+  const firebaseConfig = {
+    apiKey: "AIzaSyBh5_5nvMBaiOaf4vuze0HNfUUVSkKdG-I",
+    authDomain: "shift-schedule-bdf92.firebaseapp.com",
+    databaseURL: "https://shift-schedule-bdf92-default-rtdb.firebaseio.com",
+    projectId: "shift-schedule-bdf92",
+    storageBucket: "shift-schedule-bdf92.firebasestorage.app",
+    messagingSenderId: "337621972785",
+    appId: "1:337621972785:web:36f87d7e1b4577681ee210"
+  };
+  const SYNC_ENABLED = !firebaseConfig.apiKey.includes('여기에'); // 설정 넣으면 true
+  const DB_PATH = 'schedule/main'; // 데이터 저장 위치
+  let applyingRemote = false; // 원격 적용 중 저장 방지
+  let db = null;
+
   if (!localStorage.getItem('friendScheduleResetV4')) {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem('friendScheduleAccounts');
@@ -174,9 +183,14 @@
   let currentMonth = new Date();
   currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
   let currentUser = sessionStorage.getItem('friendScheduleUser') || '';
-  // First-run administrator account. Change the password after logging in.
-  const DEFAULT_ADMIN = { username: 'admin', password: 'admin1234', role: 'admin' };
+  const DEFAULT_ADMIN = { username: 'admin', password: 'admin', role: 'admin' };
   let accounts = loadAccounts();
+  // 기존 저장된 admin 계정의 비밀번호를 새 기본값으로 갱신 (사용자가 계정 관리에서 바꾸지 않은 경우만)
+  {
+    const adm = accounts.find(a => a.username === 'admin');
+    if (adm && (adm.password === 'admin1234')) adm.password = 'admin';
+    saveAccounts();
+  }
   let isAdmin = false;
   if (currentUser && !accounts.some(a => a.username === currentUser)) {
     currentUser = '';
@@ -232,9 +246,8 @@
       time: now.toLocaleString('ko-KR', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}),
       timestamp: now.toISOString(),
       before: before ? String(before).replace(/\s+/g, ' ').slice(0, 40) : '',
-      summary: value ? String(value).replace(/\\s+/g, ' ').slice(0, 70) : '일정 삭제'
+      summary: value ? String(value).replace(/\s+/g, ' ').slice(0, 70) : '일정 삭제'
     });
-    // 날짜별로 최근 10건만 보관(마지막 수정일 메모용), 전체 상한은 안전장치
     const sameDate = data.history.filter(h => h.date === date);
     if (sameDate.length > 10) {
       const drop = new Set(sameDate.slice(0, sameDate.length - 10));
@@ -242,7 +255,6 @@
     }
     data.history = data.history.slice(-2000);
   }
-
 
   const memoPop = document.getElementById('memoPop');
   function buildMemoHtml(date) {
@@ -294,21 +306,234 @@
     } catch (e) {}
     return { people: [...DEFAULT_PEOPLE], events: {}, modified: {}, modifiedBy: {}, cellModified: {}, cellModifiedBy: {}, history: [] };
   }
+  // 입력 중에는 저장을 모아서 처리(디바운스) — 글자마다 전체 JSON 저장으로 인한 타이핑 지연 제거
+  let persistTimer = null;
+  function persistSoon(delay) {
+    clearTimeout(persistTimer);
+    persistTimer = setTimeout(persist, delay || 400);
+  }
   function persist() {
+    clearTimeout(persistTimer);
+    persistTimer = null;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     document.getElementById('saveStatus').textContent =
       '저장됨 · ' + new Date().toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
+    if (SYNC_ENABLED) pushToServer();
   }
+
+  // ===== Firebase 실시간 동기화 =====
+  async function initFirebase() {
+    if (!SYNC_ENABLED) return;
+    try {
+      // Firebase compat SDK를 필요할 때 동적으로 로드
+      if (!window.firebase) {
+        await new Promise((resolve, reject) => {
+          const s1 = document.createElement('script');
+          s1.src = 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js';
+          s1.onload = resolve; s1.onerror = reject;
+          document.head.appendChild(s1);
+        });
+        await new Promise((resolve, reject) => {
+          const s2 = document.createElement('script');
+          s2.src = 'https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js';
+          s2.onload = resolve; s2.onerror = reject;
+          document.head.appendChild(s2);
+        });
+      }
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.database();
+
+      // 서버에 데이터가 없으면(첫 실행) 현재 브라우저 데이터를 올린다
+      const snap = await db.ref(DB_PATH).get();
+      if (!snap.exists()) {
+        await db.ref(DB_PATH).set(JSON.parse(JSON.stringify(data)));
+      } else {
+        // 서버 데이터가 기준 — 적용 후 리스너 등록
+        applyingRemote = true;
+        data = snap.val();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        render();
+        applyingRemote = false;
+      }
+
+      // 실시간 리스너: 다른 사람이 수정하면 즉시 반영
+      db.ref(DB_PATH).on('value', snapshot => {
+        if (applyingRemote) return;
+        const remote = snapshot.val();
+        if (!remote) return;
+        if (JSON.stringify(data) === JSON.stringify(remote)) return; // 자기 수정은 무시
+        applyingRemote = true;
+        data = remote;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        render();
+        applyingRemote = false;
+        document.getElementById('saveStatus').textContent = '공유 동기화됨 · ' + new Date().toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
+      });
+      document.getElementById('saveStatus').textContent = '실시간 공유 연결됨';
+    } catch (err) {
+      console.error('Firebase 초기화 실패:', err);
+      document.getElementById('saveStatus').textContent = '공유 연결 실패 (로컬 저장만 사용)';
+    }
+  }
+  async function pushToServer() {
+    if (!SYNC_ENABLED || !db || applyingRemote) return;
+    document.getElementById('saveStatus').textContent = '서버 저장 중…';
+    try {
+      await db.ref(DB_PATH).set(JSON.parse(JSON.stringify(data)));
+      document.getElementById('saveStatus').textContent = '공유됨 · ' + new Date().toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
+    } catch (err) {
+      document.getElementById('saveStatus').textContent = '서버 저장 실패 (오프라인 저장됨)';
+    }
+  }
+  initFirebase();
   function keyFor(date, person) {
     return `${date}|${person}`;
   }
   function fmtDate(y, m, d) {
     return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
   }
-  const RANGE_START = 2026, RANGE_END = 2030;
+  const RANGE_START = 2026, RANGE_END = 2028;
+  // ===== 4조 3교대 6일 순환 (2조 기준 표기) =====
+  // A=오전, B=오후, C=야간, 휴=휴무. 6일 근무 후 2일 휴무, 24일 주기.
+  // 2조 기준: 2026-10-24~29 A조(오전) → 휴무 2일 → 11/1~6 B조(오후) → 휴무 2일 → 11/9~14 C조(야간) → ...
+  const SHIFT_ANCHOR = new Date(2026, 9, 24);
+  const SHIFT_CYCLE = [
+    { label: 'A조', desc: '오전', days: 6 },
+    { label: '휴무', desc: '', days: 2 },
+    { label: 'B조', desc: '오후', days: 6 },
+    { label: '휴무', desc: '', days: 2 },
+    { label: 'C조', desc: '야간', days: 6 },
+    { label: '휴무', desc: '', days: 2 }
+  ];
+  function shiftOf(y, m, d) {
+    const cur = new Date(y, m, d);
+    const diff = Math.floor((cur - SHIFT_ANCHOR) / 86400000);
+    let phase = ((diff % 24) + 24) % 24;
+    for (const seg of SHIFT_CYCLE) {
+      if (phase < seg.days) return seg;
+      phase -= seg.days;
+    }
+    return SHIFT_CYCLE[0];
+  }
+  // ===== 공휴일 (대한민국, 2026~2028) =====
+  const HOLIDAYS = {
+    '2026-01-01': '새해', '2026-02-16': '설날', '2026-02-17': '설날', '2026-02-18': '설날',
+    '2026-03-02': '3·1절', '2026-05-01': '노동절', '2026-05-05': '어린이날',
+    '2026-05-25': '부처님 오신 날', '2026-06-03': '지방 선거일', '2026-06-06': '현충일',
+    '2026-07-17': '제헌절', '2026-08-17': '광복절', '2026-09-24': '추석', '2026-09-25': '추석',
+    '2026-09-26': '추석', '2026-10-05': '개천절', '2026-10-09': '한글날', '2026-12-25': '크리스마스',
+    '2027-01-01': '새해', '2027-02-06': '설날', '2027-02-08': '설날', '2027-02-09': '설날',
+    '2027-03-01': '3·1절', '2027-05-03': '노동절', '2027-05-05': '어린이날',
+    '2027-05-13': '부처님 오신 날', '2027-06-06': '현충일', '2027-07-19': '제헌절',
+    '2027-08-16': '광복절', '2027-09-14': '추석', '2027-09-15': '추석', '2027-09-16': '추석',
+    '2027-10-04': '개천절', '2027-10-11': '한글날', '2027-12-25': '크리스마스',
+    '2028-01-01': '새해', '2028-01-26': '설날', '2028-01-27': '설날', '2028-01-28': '설날',
+    '2028-03-01': '3·1절', '2028-05-01': '노동절', '2028-05-02': '부처님 오신 날',
+    '2028-05-05': '어린이날', '2028-06-06': '현충일', '2028-07-17': '제헌절', '2028-08-15': '광복절',
+    '2028-10-02': '추석', '2028-10-03': '개천절·추석', '2028-10-04': '추석', '2028-10-09': '한글날',
+    '2028-12-25': '크리스마스'
+  };
+  const MONTH_COUNT = (RANGE_END - RANGE_START + 1) * 12;
   const WEEKDAYS = ['일','월','화','수','목','금','토'];
-  let monthRows = [];
-  let rendered = false;
+
+  // ===== 가상 렌더링: 월 단위로 필요한 만큼만 DOM에 붙였다 뗀다 =====
+  let monthRowEls = [];   // 60개 월 구분행 (가벼움, 항상 존재)
+  let loaded = new Set(); // 일 행이 붙어 있는 월 인덱스
+  function indexOfMonth(y, m) { return (y - RANGE_START) * 12 + m; }
+  function ymOfIndex(idx) { return { y: RANGE_START + Math.floor(idx / 12), m: idx % 12 }; }
+
+  function buildMonthDayRows(y, m) {
+    const now = new Date();
+    const ty = now.getFullYear(), tm = now.getMonth(), tdd = now.getDate();
+    const cut = new Date(now); cut.setDate(cut.getDate() - 7);
+    const cutoffStr = fmtDate(cut.getFullYear(), cut.getMonth(), cut.getDate());
+    const histDates = new Set((data.history || []).map(h => h.date));
+    const rows = [];
+    const days = new Date(y, m+1, 0).getDate();
+    for (let d = 1; d <= days; d++) {
+      const date = fmtDate(y, m, d);
+      const dow = new Date(y, m, d).getDay();
+      const isToday = (y === ty && m === tm && d === tdd);
+      const locked = !currentUser || (date < cutoffStr && !isAdmin);
+      const lockTitle = !currentUser ? '수정하려면 먼저 로그인하세요.' : '7일이 지난 일정은 관리자만 수정할 수 있습니다.';
+      const cells = data.people.map((person, pi) => {
+        const k = keyFor(date, person);
+        const val = data.events[k] || '';
+        const stamp = data.cellModified && data.cellModified[k];
+        const who = data.cellModifiedBy && data.cellModifiedBy[k];
+        let title = stamp ? `메모 · 수정 계정: ${who || '알 수 없음'} · 수정 날짜: ${formatModified(stamp)}` : '';
+        if (locked) title = title ? `${title}\n${lockTitle}` : lockTitle;
+        const tdCls = 'person-cell' + (stamp && val ? ' note-cell' : '');
+        return `<td class="${tdCls}"><textarea class="entry${locked ? ' locked-entry' : ''}" data-date="${date}" data-pi="${pi}"${locked ? ' disabled' : ''}${title ? ` title="${escapeHtml(title)}"` : ''} aria-label="${date} ${escapeHtml(person)} 일정">\n${escapeHtml(val)}</textarea></td>`;
+      }).join('');
+      const mDate = data.modified && data.modified[date];
+      const mUser = data.modifiedBy && data.modifiedBy[date];
+      const modCell = `<td class="date-cell modified-cell${(mDate || histDates.has(date)) ? ' has-memo' : ''}" tabindex="0" data-date="${date}">` +
+        (mDate ? `${escapeHtml(formatModified(mDate))}<br><strong>${escapeHtml(mUser || '이전 기록')}</strong>` : '—') + '</td>';
+      const dateCls = 'date-cell ' + (dow === 0 ? 'weekend-sun' : dow === 6 ? 'weekend-sat' : '') + (isToday ? ' today' : '') + (HOLIDAYS[date] ? ' holiday' : '');
+      const shift = shiftOf(y, m, d);
+      const holidayName = HOLIDAYS[date] ? `<span class="holiday-name">${escapeHtml(HOLIDAYS[date])}</span>` : '';
+      const shiftTag = shift.label === '휴무'
+        ? '<span class="shift-tag shift-off">휴무</span>'
+        : `<span class="shift-tag shift-${shift.label[0].toLowerCase()}">${shift.label}</span>`;
+      const tr = document.createElement('tr');
+      tr.dataset.date = date;
+      if (isToday) tr.id = 'todayRow';
+      tr.innerHTML = `<td class="${dateCls}"><span class="date-num">${d}일</span><span class="weekday">${WEEKDAYS[dow]}</span>${shiftTag}${holidayName}</td>${cells}${modCell}`;
+      rows.push(tr);
+    }
+    return rows;
+  }
+  function attachMonth(idx) {
+    if (loaded.has(idx)) return;
+    loaded.add(idx);
+    const { y, m } = ymOfIndex(idx);
+    const frag = document.createDocumentFragment();
+    buildMonthDayRows(y, m).forEach(r => frag.appendChild(r));
+    monthRowEls[idx].after(frag);
+  }
+  function detachMonth(idx) {
+    if (!loaded.has(idx)) return;
+    const { y, m } = ymOfIndex(idx);
+    // 편집 중인 textarea가 이 달에 있으면 떼지 않음
+    const ae = document.activeElement;
+    if (ae && ae.closest && ae.closest('textarea.entry') && ae.dataset.date && ae.dataset.date.startsWith(`${y}-${String(m+1).padStart(2,'0')}`)) return;
+    // 저장 대기 중이면 먼저 확정 저장 (데이터 유실 방지)
+    if (persistTimer) persist();
+    loaded.delete(idx);
+    const days = new Date(y, m+1, 0).getDate();
+    let node = monthRowEls[idx].nextSibling;
+    let n = 0;
+    while (node && n < days) {
+      const next = node.nextSibling;
+      node.remove();
+      node = next;
+      n++;
+    }
+  }
+  let lastCenterIdx = -1; // 탐색 시작점 기억 (스크롤마다 전체 탐색 방지)
+  function ensureMonths() {
+    const wrap = document.querySelector('.table-wrap');
+    const wRect = wrap.getBoundingClientRect();
+    // 마지막 중심 근처부터 이분 탐색으로 보이는 월 찾기
+    let lo = 0, hi = monthRowEls.length - 1, start = 0;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (monthRowEls[mid].getBoundingClientRect().bottom >= wRect.top - 900) { start = mid; hi = mid - 1; }
+      else lo = mid + 1;
+    }
+    let end = start;
+    while (end < monthRowEls.length && monthRowEls[end].getBoundingClientRect().top <= wRect.bottom + 900) end++;
+    if (start > end) return;
+    const min = Math.max(0, start - 1);
+    const max = Math.min(monthRowEls.length - 1, end);
+    for (let i = min; i <= max; i++) attachMonth(i);
+    const keepMin = min - 2, keepMax = max + 2;
+    for (const i of Array.from(loaded)) {
+      if (i < keepMin || i > keepMax) detachMonth(i);
+    }
+    lastCenterIdx = (min + max) >> 1;
+  }
 
   function render() {
     const wrap = document.querySelector('.table-wrap');
@@ -318,49 +543,37 @@
       data.people.map(p => `<th class="person-col">${escapeHtml(p)}</th>`).join('') +
       '<th class="date-col">마지막 수정일</th>';
     const cols = data.people.length + 2;
-    const now = new Date();
-    const ty = now.getFullYear(), tm = now.getMonth(), tdd = now.getDate();
-    const cut = new Date(now); cut.setDate(cut.getDate() - 7);
-    const cutoffStr = fmtDate(cut.getFullYear(), cut.getMonth(), cut.getDate());
-    const histDates = new Set((data.history || []).map(h => h.date));
-    const parts = [];
+    const body = document.getElementById('bodyRows');
+    const frag = document.createDocumentFragment();
+    monthRowEls = [];
+    loaded.clear();
     for (let y = RANGE_START; y <= RANGE_END; y++) {
       for (let m = 0; m < 12; m++) {
-        parts.push(`<tr class="month-row" data-ym="${y}-${m}"><td colspan="${cols}"><span>${y}년 ${m+1}월</span></td></tr>`);
-        const days = new Date(y, m+1, 0).getDate();
-        for (let d = 1; d <= days; d++) {
-          const date = fmtDate(y, m, d);
-          const dow = new Date(y, m, d).getDay();
-          const isToday = (y === ty && m === tm && d === tdd);
-          const locked = !currentUser || (date < cutoffStr && !isAdmin);
-          const lockTitle = !currentUser ? '수정하려면 먼저 로그인하세요.' : '7일이 지난 일정은 관리자만 수정할 수 있습니다.';
-          const cells = data.people.map((person, pi) => {
-            const k = keyFor(date, person);
-            const val = data.events[k] || '';
-            const stamp = data.cellModified && data.cellModified[k];
-            const who = data.cellModifiedBy && data.cellModifiedBy[k];
-            let title = stamp ? `메모 · 수정 계정: ${who || '알 수 없음'} · 수정 날짜: ${formatModified(stamp)}` : '';
-            if (locked) title = title ? `${title}\n${lockTitle}` : lockTitle;
-            const tdCls = 'person-cell' + (stamp && val ? ' note-cell' : '');
-            return `<td class="${tdCls}"><textarea class="entry${locked ? ' locked-entry' : ''}" data-date="${date}" data-pi="${pi}"${locked ? ' disabled' : ''}${title ? ` title="${escapeHtml(title)}"` : ''} aria-label="${date} ${escapeHtml(person)} 일정">\n${escapeHtml(val)}</textarea></td>`;
-          }).join('');
-          const mDate = data.modified && data.modified[date];
-          const mUser = data.modifiedBy && data.modifiedBy[date];
-          const modCell = `<td class="date-cell modified-cell${(mDate || histDates.has(date)) ? ' has-memo' : ''}" tabindex="0" data-date="${date}">` +
-            (mDate ? `${escapeHtml(formatModified(mDate))}<br><strong>${escapeHtml(mUser || '이전 기록')}</strong>` : '—') + '</td>';
-          const dateCls = 'date-cell ' + (dow === 0 ? 'weekend-sun' : dow === 6 ? 'weekend-sat' : '') + (isToday ? ' today' : '');
-          parts.push(`<tr data-date="${date}"${isToday ? ' id="todayRow"' : ''}><td class="${dateCls}"><span class="date-num">${d}일</span><span class="weekday">${WEEKDAYS[dow]}</span></td>${cells}${modCell}</tr>`);
-        }
+        const tr = document.createElement('tr');
+        tr.className = 'month-row';
+        tr.dataset.ym = `${y}-${m}`;
+        tr.innerHTML = `<td colspan="${cols}"><span>${y}년 ${m+1}월</span></td>`;
+        frag.appendChild(tr);
+        monthRowEls.push(tr);
       }
     }
-    document.getElementById('bodyRows').innerHTML = parts.join('');
-    monthRows = Array.from(document.querySelectorAll('#bodyRows tr.month-row'));
+    body.innerHTML = '';
+    body.appendChild(frag);
     const picker = document.getElementById('monthPicker');
     picker.min = `${RANGE_START}-01`; picker.max = `${RANGE_END}-12`;
-    if (!rendered) { rendered = true; scrollToToday(); }
-    else { wrap.scrollTop = prevTop; }
+    const now = new Date();
+    const todayIdx = Math.min(MONTH_COUNT - 1, Math.max(0, indexOfMonth(now.getFullYear(), now.getMonth())));
+    if (!rendered) {
+      rendered = true;
+      for (let i = Math.max(0, todayIdx - 2); i <= Math.min(MONTH_COUNT - 1, todayIdx + 2); i++) attachMonth(i);
+      scrollToToday(false);
+    } else {
+      ensureMonths();
+      wrap.scrollTop = prevTop;
+    }
     updateCurrentMonth();
   }
+  let rendered = false;
   function scrollToEl(el, smooth) {
     const wrap = document.querySelector('.table-wrap');
     const head = wrap.querySelector('thead');
@@ -369,30 +582,37 @@
     else wrap.scrollTop = Math.max(0, top);
   }
   function scrollToToday(smooth) {
-    const row = document.getElementById('todayRow');
-    if (row) { scrollToEl(row, !!smooth); return; }
     const now = new Date();
-    // 오늘이 표시 범위 밖이면 가장 가까운 끝으로 이동
-    if (monthRows.length) scrollToEl(now.getFullYear() < RANGE_START ? monthRows[0] : monthRows[monthRows.length - 1], !!smooth);
+    // 오늘 달이 DOM에서 떼어져 있을 수 있으므로 먼저 붙인다
+    const idx = Math.min(MONTH_COUNT - 1, Math.max(0, indexOfMonth(now.getFullYear(), now.getMonth())));
+    for (let i = Math.max(0, idx - 1); i <= Math.min(MONTH_COUNT - 1, idx + 1); i++) attachMonth(i);
+    const todayStr = fmtDate(now.getFullYear(), now.getMonth(), now.getDate());
+    const row = document.getElementById('bodyRows').querySelector(`tr[data-date="${todayStr}"]`);
+    if (row) { scrollToEl(row, !!smooth); return; }
+    if (monthRowEls.length) scrollToEl(now.getFullYear() < RANGE_START ? monthRowEls[0] : monthRowEls[monthRowEls.length - 1], !!smooth);
   }
   function updateCurrentMonth() {
-    if (!monthRows.length) return;
+    if (!monthRowEls.length) return;
     const wrap = document.querySelector('.table-wrap');
     const limit = wrap.getBoundingClientRect().top + wrap.querySelector('thead').offsetHeight + 4;
-    let cur = monthRows[0];
-    for (const r of monthRows) {
-      if (r.getBoundingClientRect().top <= limit) cur = r; else break;
+    // 이분 탐색: 헤더 아래에 걸친 월 행 찾기
+    let lo = 0, hi = monthRowEls.length - 1, cur = 0;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (monthRowEls[mid].getBoundingClientRect().top <= limit) { cur = mid; lo = mid + 1; }
+      else hi = mid - 1;
     }
-    const [y, m] = cur.dataset.ym.split('-').map(Number);
+    const [y, m] = monthRowEls[cur].dataset.ym.split('-').map(Number);
     currentMonth = new Date(y, m, 1);
     document.getElementById('monthPicker').value = `${y}-${String(m+1).padStart(2,'0')}`;
   }
   function jumpToMonth(y, m, smooth) {
-    const row = monthRows.find(r => r.dataset.ym === `${y}-${m}`);
-    if (!row) return;
+    const idx = indexOfMonth(y, m);
+    if (idx < 0 || idx >= MONTH_COUNT) return;
+    for (let i = Math.max(0, idx - 1); i <= Math.min(MONTH_COUNT - 1, idx + 1); i++) attachMonth(i);
     currentMonth = new Date(y, m, 1);
     document.getElementById('monthPicker').value = `${y}-${String(m+1).padStart(2,'0')}`;
-    scrollToEl(row, smooth);
+    requestAnimationFrame(() => { ensureMonths(); scrollToEl(monthRowEls[idx], smooth); });
   }
   function formatModified(value) {
     if (!value) return '—';
@@ -420,11 +640,11 @@
     wrap.addEventListener('scroll', () => {
       if (ticking) return;
       ticking = true;
-      requestAnimationFrame(() => { ticking = false; updateCurrentMonth(); });
+      requestAnimationFrame(() => { ticking = false; ensureMonths(); updateCurrentMonth(); });
     });
   })();
 
-  // 셀 편집/메모는 표 전체에 이벤트 위임으로 처리(행이 약 1,800개라 개별 등록하지 않음)
+  // 셀 편집/메모는 표 전체에 이벤트 위임으로 처리(필요한 월만 DOM에 있으므로 가볍다)
   (() => {
     const body = document.getElementById('bodyRows');
     let memoAnchor = null;
@@ -469,7 +689,8 @@
       data.cellModifiedBy[k] = currentUser;
       area.title = `메모 · 수정 계정: ${currentUser} · 수정 날짜: ${formatModified(nowIso)}`;
       area.parentElement.classList.toggle('note-cell', !!area.value);
-      persist();
+      document.getElementById('saveStatus').textContent = '저장 대기 중…';
+      persistSoon(400);
       const modifiedCell = area.closest('tr').querySelector('.modified-cell');
       if (modifiedCell) {
         modifiedCell.classList.add('has-memo');
@@ -570,7 +791,6 @@
   document.getElementById('savePeople').onclick = () => {
     const people = [...new Set(document.getElementById('peopleInput').value.split(',').map(s=>s.trim()).filter(Boolean))];
     if (!people.length) { alert('친구 이름을 한 명 이상 입력해 주세요.'); return; }
-    const oldPeople = data.people;
     // Keep events for retained people; remove events belonging to deleted columns.
     const keep = new Set(people);
     Object.keys(data.events).forEach(k => {
