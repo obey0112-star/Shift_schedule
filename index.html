@@ -564,8 +564,20 @@
   }
   document.getElementById('todayBtn').onclick = () => {
     const now = new Date();
+    const needRender = currentMonth.getFullYear() !== now.getFullYear() || currentMonth.getMonth() !== now.getMonth();
     currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     render();
+    // 오늘 행을 표 상단(헤더 바로 아래)으로 스크롤
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const todayStr = fmtDate(now.getFullYear(), now.getMonth(), now.getDate());
+      const row = document.querySelector(`#bodyRows tr[data-date="${todayStr}"]`);
+      if (!row) return;
+      const wrap = document.querySelector('.table-wrap');
+      const head = wrap.querySelector('thead');
+      wrap.scrollTop = row.getBoundingClientRect().top - wrap.getBoundingClientRect().top + wrap.scrollTop - head.offsetHeight;
+      row.querySelectorAll('td.date-cell').forEach(td => td.classList.remove('today'));
+      // today 클래스 재적용 (렌더 시 이미 있음, 깜빡임 강조용)
+    }));
   };
   document.getElementById('prevMonthBtn').onclick = () => shiftMonth(-1);
   document.getElementById('nextMonthBtn').onclick = () => shiftMonth(1);
