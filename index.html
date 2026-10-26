@@ -382,10 +382,30 @@
         const remote = snapshot.val();
         if (!remote) return;
         if (JSON.stringify(data) === JSON.stringify(remote)) return; // 자기 수정은 무시
+        // 편집 중(포커스 있는 textarea)이면 지금은 화면을 다시 그리지 않는다 — 입력 보호 + 스크롤 고정
+        const ae = document.activeElement;
+        if (ae && ae.closest && ae.closest('textarea.entry')) return;
         applyingRemote = true;
         data = normalizeData(remote);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        // 현재 보이는 첫 날짜를 기억했다가 다시 그린 뒤 그 위치로 복원 (스크롤 흔들림 방지)
+        const wrap = document.querySelector('.table-wrap');
+        const headH = wrap.querySelector('thead').offsetHeight;
+        const wTop = wrap.getBoundingClientRect().top + headH;
+        let anchorDate = null;
+        for (const tr of document.querySelectorAll('#bodyRows tr[data-date]')) {
+          if (tr.getBoundingClientRect().top >= wTop) { anchorDate = tr.dataset.date; break; }
+        }
         render();
+        if (anchorDate) {
+          const target = document.querySelector(`#bodyRows tr[data-date="${anchorDate}"]`);
+          if (target) {
+            requestAnimationFrame(() => {
+              const head2 = wrap.querySelector('thead');
+              wrap.scrollTop = target.getBoundingClientRect().top - wrap.getBoundingClientRect().top + wrap.scrollTop - head2.offsetHeight;
+            });
+          }
+        }
         applyingRemote = false;
         document.getElementById('saveStatus').textContent = '공유 동기화됨 · ' + new Date().toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
       });
@@ -620,11 +640,14 @@
     const now = new Date();
     // 오늘 달이 DOM에서 떼어져 있을 수 있으므로 먼저 붙인다
     const idx = Math.min(MONTH_COUNT - 1, Math.max(0, indexOfMonth(now.getFullYear(), now.getMonth())));
-    for (let i = Math.max(0, idx - 1); i <= Math.min(MONTH_COUNT - 1, idx + 1); i++) attachMonth(i);
+    for (let i = Math.max(0, idx - 2); i <= Math.min(MONTH_COUNT - 1, idx + 2); i++) attachMonth(i);
     const todayStr = fmtDate(now.getFullYear(), now.getMonth(), now.getDate());
     const row = document.getElementById('bodyRows').querySelector(`tr[data-date="${todayStr}"]`);
-    if (row) { scrollToEl(row, !!smooth); return; }
-    if (monthRowEls.length) scrollToEl(now.getFullYear() < RANGE_START ? monthRowEls[0] : monthRowEls[monthRowEls.length - 1], !!smooth);
+    // 레이아웃이 완전히 잡힌 뒤 이동해야 정확한 위치로 간다 (rAF 2회 대기)
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (row && row.isConnected) { scrollToEl(row, !!smooth); return; }
+      if (monthRowEls.length) scrollToEl(now.getFullYear() < RANGE_START ? monthRowEls[0] : monthRowEls[monthRowEls.length - 1], !!smooth);
+    }));
   }
   function updateCurrentMonth() {
     if (!monthRowEls.length) return;
