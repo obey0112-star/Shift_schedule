@@ -76,6 +76,8 @@
   .account-list th { background:var(--head); position:sticky; top:0; z-index:1; }
   /* 모바일 전용 날짜별 카드: PC 표는 그대로 유지 */
   .mobile-cards { display:none; }
+  /* 모바일 화면 오른쪽 아래에 항상 보이는 오늘 버튼 */
+  .floating-today-btn { display:none; }
   .day-card { background:#fff; border:1px solid var(--line); border-radius:12px; margin:0 0 12px; overflow:hidden; box-shadow:0 2px 8px #0f172a0a; }
   .day-card.today { border:2px solid #60a5fa; }
   .day-card-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 14px; background:#f1f5f9; }
@@ -97,6 +99,15 @@
     .mobile-cards{display:block}
     .bottom{margin-top:8px; align-items:flex-start}
     .legend{gap:8px}
+    .floating-today-btn {
+      display:flex; align-items:center; justify-content:center; gap:6px;
+      position:fixed; right:18px; bottom:calc(18px + env(safe-area-inset-bottom));
+      z-index:20; min-height:48px; padding:0 17px; border:0; border-radius:999px;
+      background:#2563eb; color:#fff; font-size:15px; font-weight:800;
+      box-shadow:0 4px 14px #0f172a40; cursor:pointer;
+    }
+    .floating-today-btn:active { transform:scale(.97); }
+    body { padding-bottom:76px; }
   }
   .modal-backdrop { position:fixed; inset:0; background:#0f172a66; display:none; align-items:center; justify-content:center; padding:16px; z-index:10; }
   /* 모달이 화면보다 길어지면 모달 안에서 스크롤 */
@@ -758,6 +769,7 @@
     currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     render({ scroll: 'today' });
   };
+  document.getElementById('floatingTodayBtn').onclick = () => document.getElementById('todayBtn').click();
   document.getElementById('prevMonthBtn').onclick = () => shiftMonth(-1);
   document.getElementById('nextMonthBtn').onclick = () => shiftMonth(1);
   document.getElementById('monthPicker').onchange = e => {
